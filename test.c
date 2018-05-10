@@ -2,10 +2,11 @@
 
 #include "log.h"
 #include "block.h"
+#include "blockchain.h"
 
 const EVP_MD* hash_alg;
 
-void test_block();
+void test_chain();
 void print_digest(unsigned char* digest, size_t len); 
 void print_serialization(block_t* block);
 
@@ -18,7 +19,7 @@ int main(int argc, char* argv[]) {
 	OpenSSL_add_all_digests();
 	hash_alg = EVP_sha256();
 
-	test_block();
+	test_chain();
 
 	EVP_cleanup();
 	log_close();
@@ -26,27 +27,49 @@ int main(int argc, char* argv[]) {
 }
 
 
-void test_block() {
-	block_t* g_block;
+void test_chain() {
 	block_t* new_block;
-	unsigned char* digest;
+	blockchain_t* chain;
 	size_t digest_len;
+	unsigned char* digest;
 
-	unsigned char* orig_digest;
-	orig_digest = calloc(1, EVP_MD_size(hash_alg));
-	g_block = block_new(0, orig_digest, EVP_MD_size(hash_alg));
-	free(orig_digest);
+	chain = blockchain_create();
+	if (chain == NULL) {
+		printf("Failed to create blockchain\n");		
+		return;
+	}
 
-	block_hash(g_block, &digest, &digest_len);
-	print_digest(digest, digest_len);
+	if (block_hash(chain->tail, &digest, &digest_len) != 1) {
+		printf("Failed to get hash of tail\n");
+		return;
+	}
+	new_block = block_new(1, digest, digest_len);
+	if (new_block == NULL) {
+		printf("Failed to create new block\n");
+		return;
+	}
+	blockchain_add_block(chain, new_block);
 	free(digest);
 
-	block_free(g_block);
+	if (block_hash(chain->tail, &digest, &digest_len) != 1) {
+		printf("Failed to get hash of tail\n");
+		return;
+	}
+	new_block = block_new(2, digest, digest_len);
+	if (new_block == NULL) {
+		printf("Failed to create new block\n");
+		return;
+	}
+	blockchain_add_block(chain, new_block);
+	free(digest);
+
+	blockchain_to_file(chain, stdout);
+	blockchain_free(chain);
 	return;
 }
 
 void print_digest(unsigned char* digest, size_t len) {
-	int i;
+	size_t i;
 	printf("Digest: ");
 	for (i = 0; i < len; i++) {
 		printf("%02X", digest[i]);

@@ -25,6 +25,27 @@ block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len) {
 	return new_block;
 }
 
+block_t* block_new_genesis() {
+	block_t* block;
+	unsigned char* digest;
+	size_t digest_len;
+
+	/* Genesis block has zeroes for its hash */
+	digest = calloc(1, EVP_MD_size(hash_alg));
+	if (digest == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
+		return NULL;
+	}
+	block = block_new(0, digest, EVP_MD_size(hash_alg));
+	if (block == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate genesis block\n");
+		free(digest);
+		return NULL;
+	}
+	free(digest);
+	return block;
+}
+
 void block_free(block_t* block) {
 	free(block);
 	return;
@@ -35,12 +56,13 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 	unsigned char* serialized_block;
 	size_t serial_len;
 	unsigned char* digest_data;
+	unsigned int digest_datalen;
 	if (block_serialize(block, &serialized_block, &serial_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to serialize block\n");
 		return 0;
 	}
 
-	log_printf(LOG_DEBUG, "Block serialization:\n%s\n", serialized_block);
+	//log_printf(LOG_DEBUG, "Block serialization:\n%s\n", serialized_block);
 
 	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	md_ctx = EVP_MD_CTX_new();
@@ -54,10 +76,21 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 		return 0;
 	}
 
-	EVP_DigestInit_ex(md_ctx, hash_alg, NULL);
-	EVP_DigestUpdate(md_ctx, serialized_block, serial_len);
-	EVP_DigestFinal_ex(md_ctx, digest_data, (unsigned int*)digest_len);
+	if (EVP_DigestInit_ex(md_ctx, hash_alg, NULL) == 0) {
+		log_printf(LOG_ERROR, "Failed to init digest\n");		
+		return 0;
+	}
+	if (EVP_DigestUpdate(md_ctx, serialized_block, serial_len) == 0) {
+		log_printf(LOG_ERROR, "Failed to update digest\n");
+		return 0;
+	}
+	if (EVP_DigestFinal_ex(md_ctx, digest_data, &digest_datalen) == 0) {
+		log_printf(LOG_ERROR, "Failed to finalize digest\n");
+		return 0;
+	}
+
 	*digest = digest_data;
+	*digest_len = digest_datalen;
 
 	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX_free(md_ctx);
@@ -128,3 +161,4 @@ int digest_to_str(unsigned char* digest, size_t digest_len, char** str) {
 	*str = tmp;
 	return 1;
 }
+
