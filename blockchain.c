@@ -83,7 +83,7 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 		return 0;
 	}
 	/* XXX validate num_zeroes based on timestamp first */
-	for (i = 0; i < block->num_zeroes; i++) {
+	for (i = 0; i < block->target_bits; i++) {
 		if (digest[i] != 0) {
 			log_printf(LOG_ERROR,
 				"Block does not have sufficient leading zeroes\n");

@@ -10,19 +10,18 @@
 #include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
 
 typedef struct block {
-	int index;
-	struct timespec timestamp;
-	/* digest of previous block */
-	unsigned char prev_digest[EVP_MAX_MD_SIZE];
-	size_t prev_digest_len;
-	/* increase size of nonce if you want harder difficulties */
-	int nonce;
-	/* dictates the difficulty of the block */
-	int num_zeroes;
-	
-	/* pointers for blockchain */
+	/* Core members */
+	int version; /* block format version */
+	struct timespec timestamp; /* time created */
+	unsigned char prev_digest[EVP_MAX_MD_SIZE]; /* hash of prev block */
+	int nonce; /* nonce to increment for mining */
+	int target_bits; /* number of leading zeroes for target difficulty */
+	int num_transactions; /* number of transactions in block */
+
+	/* Members for operational use */
 	struct block* next;
 	struct block* prev;
+
 } block_t;
 
 block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len);

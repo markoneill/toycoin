@@ -5,9 +5,15 @@
 #include "block.h"
 #include "log.h"
 
+#define BLOCK_VERSION	1
 extern const EVP_MD* hash_alg;
 
-const char serial_format[] = "index:%010d\ntimestamp:%lld.%.9ld\nprev_digest:%s";
+const char serial_format[] = "version:%04X\n"
+			     "timestamp:%lld.%.9ld\n"
+			     "prev_digest:%s\n"
+			     "nonce:%04X\n"
+                             "target_bits:%04X\n"
+			     "num_transactions:%04X\n";
 
 static int digest_to_str(unsigned char* digest, size_t digest_len, char** str);
 
@@ -18,10 +24,9 @@ block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len) {
 		log_printf(LOG_ERROR, "Unable to allocate new block\n");
 		return NULL;
 	}
-	new_block->index = index;
+	new_block->version = BLOCK_VERSION;
 	clock_gettime(CLOCK_REALTIME, &new_block->timestamp);
-	memcpy(new_block->prev_digest, prev_digest, digest_len);
-	new_block->prev_digest_len = digest_len;
+	memcpy(new_block->prev_digest, prev_digest, EVP_MD_size(hash_alg));
 	return new_block;
 }
 
@@ -104,20 +109,22 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 	unsigned char* block_data;
 	char* digest_str;
-	int digest_len;
 	size_t block_data_len;
-	digest_len = block->prev_digest_len;
-	if (digest_to_str(block->prev_digest, digest_len, &digest_str) == 0) {
+	if (digest_to_str(block->prev_digest, EVP_MD_size(hash_alg),
+			&digest_str) == 0) {
 		log_printf(LOG_ERROR, "Failed to convert digest to string\n");
 		return 0;
 	}
 	block_data_len = snprintf(NULL,
 			0,
 			serial_format,
-			block->index,
+			block->version,
 			block->timestamp.tv_sec,
 			block->timestamp.tv_nsec,
-			digest_str);
+			digest_str,
+			block->nonce,
+			block->target_bits,
+			block->num_transactions);
 	if (block_data_len == -1) {
 		log_printf(LOG_ERROR, "Cannot serialize block data\n");
 		free(digest_str);
@@ -132,10 +139,13 @@ int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 	block_data_len = snprintf(block_data,
 			block_data_len + 1,
 			serial_format,
-			block->index,
+			block->version,
 			block->timestamp.tv_sec,
 			block->timestamp.tv_nsec,
-			digest_str);
+			digest_str,
+			block->nonce,
+			block->target_bits,
+			block->num_transactions);
 	if (block_data_len == -1) {
 		log_printf(LOG_ERROR, "Failed to serialize block data\n");
 		free(digest_str);
