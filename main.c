@@ -1,24 +1,28 @@
 #include <openssl/evp.h>
+#include <stdlib.h>
 
 #include "log.h"
+#include "transaction.h"
 #include "block.h"
 #include "blockchain.h"
 
 const EVP_MD* hash_alg;
 
 void test_chain();
+void test_transactions();
 void print_digest(unsigned char* digest, size_t len); 
 void print_serialization(block_t* block);
 
 int main(int argc, char* argv[]) {
+	/* Global setup */
 	if (log_init(NULL, LOG_DEBUG)) {
 		fprintf(stderr, "Failed to initialize log\n");
 		exit(EXIT_FAILURE);
 	}
-	
 	OpenSSL_add_all_digests();
 	hash_alg = EVP_sha256();
 
+	test_transactions();
 	test_chain();
 
 	EVP_cleanup();
@@ -68,6 +72,7 @@ void test_chain() {
 	return;
 }
 
+
 void print_digest(unsigned char* digest, size_t len) {
 	size_t i;
 	printf("Digest: ");
@@ -77,3 +82,8 @@ void print_digest(unsigned char* digest, size_t len) {
 	printf("\n");
 	return;
 }
+
+void test_transactions() {
+	
+}
+
