@@ -19,5 +19,6 @@ int util_digestlen(void);
 cryptokey_t* util_generate_key(int bits);
 int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len);
 void util_free_key(cryptokey_t* key);
+int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen);
 
 #endif

@@ -10,9 +10,9 @@ static coin_t* coin_new(transaction_t* transaction, int index);
 static void coin_free(coin_t* coin);
 
 address_t* address_new(void) {
-	key_t* keypair;
+	cryptokey_t* keypair;
 	address_t* address;
-	address = calloc(1, sizeof(address));
+	address = calloc(1, sizeof(address_t));
 	if (address == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate new address\n");
 		return NULL;
@@ -24,12 +24,13 @@ address_t* address_new(void) {
 		return NULL;
 	}
 	
-	if (util_hash_pubkey(keypair, &address->id, &address->id_len) == 0) {
+	if (util_hash_pubkey(keypair, address->id, &address->id_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash pubkey\n");
 		util_free_key(keypair);
 		free(address);
 		return NULL;
 	}
+	address->keypair = keypair;
 	address->coin = NULL;
 	address->next = NULL;
 	return address;
@@ -47,6 +48,12 @@ void address_free(address_t* address) {
 	return;
 }
 
+int address_serialize(address_t* addr, unsigned char** data, int* datalen) {
+	if (util_serialize_key(addr->keypair, data, datalen) == 0) {
+		return 0;
+	}
+	return 1;
+}
 
 coin_t* coin_new(transaction_t* transaction, int index) {
 	coin_t* coin;

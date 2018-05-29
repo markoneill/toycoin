@@ -11,7 +11,7 @@ typedef struct wallet {
 
 wallet_t* wallet_new(void);
 void wallet_free(wallet_t* wallet);
-int wallet_save(char* filepath);
+int wallet_save(wallet_t* wallet, char* filepath);
 wallet_t* wallet_load(char* filepath);
 
 #endif

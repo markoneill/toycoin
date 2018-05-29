@@ -1,6 +1,7 @@
 #include <openssl/evp.h> /* for pki operations */
 #include <openssl/crypto.h> /* for RSA key generation */
 #include <openssl/pem.h> /* for PEM format read and write */
+#include <openssl/bio.h> /* for BIO operations */
 #include "log.h"
 #include "util.h"
 
@@ -14,6 +15,8 @@ void util_init_crypto(void) {
 
 void util_deinit_crypto(void) {
 	EVP_cleanup();
+	ENGINE_cleanup();
+	CRYPTO_cleanup_all_ex_data();
 }
 
 int util_digestlen(void) {
@@ -61,20 +64,24 @@ cryptokey_t* util_generate_key(int bits) {
 
 	bn_e = BN_new();
 	if (bn_e == NULL) {
+		log_printf(LOG_ERROR, "Failed to make bignum\n");
 		return NULL;
 	}
 	if (BN_set_word(bn_e, e) != 1) {
+		log_printf(LOG_ERROR, "Failed set bignum\n");
 		BN_free(bn_e);
 		return NULL;
 	}
 
 	rsa = RSA_new();
 	if (rsa == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate new RSA\n");
 		BN_free(bn_e);
 		return NULL;
 	}
 	
 	if (RSA_generate_key_ex(rsa, bits, bn_e, NULL) != 1) {
+		log_printf(LOG_ERROR, "Failed to generate new RSA\n");
 		BN_free(bn_e);
 		RSA_free(rsa);
 		return NULL;
@@ -82,19 +89,22 @@ cryptokey_t* util_generate_key(int bits) {
 
 	keypair = EVP_PKEY_new();
 	if (keypair == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate new keypair\n");
 		RSA_free(rsa);
 		BN_free(bn_e);
 		return NULL;
 	}
 
 	if (EVP_PKEY_assign_RSA(keypair, rsa) != 1) {
+		log_printf(LOG_ERROR, "Failed to assign RSA to keypair\n");
 		RSA_free(rsa);
 		BN_free(bn_e);
 		return NULL;
 	}
 
-	key = calloc(1, sizeof(key_t));
+	key = calloc(1, sizeof(cryptokey_t));
 	if (key == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate new cryptokey\n");
 		RSA_free(rsa);
 		BN_free(bn_e);
 		return NULL;
@@ -108,6 +118,7 @@ cryptokey_t* util_generate_key(int bits) {
 int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len) {
 	EVP_PKEY* keypair;
 	unsigned char* encoded_pubkey;
+	unsigned char* encoded_pubkey_end;
 	int encoded_len;
 
 	keypair = key->ossl_key;
@@ -122,7 +133,8 @@ int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len
 		log_printf(LOG_ERROR, "Failed to allocate encoded key\n");
 		return 0;
 	}
-	encoded_len = i2d_PUBKEY(keypair, &encoded_pubkey);
+	encoded_pubkey_end = encoded_pubkey;
+	encoded_len = i2d_PUBKEY(keypair, &encoded_pubkey_end);
 	if (encoded_len < 0) {
 		log_printf(LOG_ERROR, "Failed to encode public key\n");
 		free(encoded_pubkey);
@@ -143,5 +155,35 @@ void util_free_key(cryptokey_t* key) {
 	EVP_PKEY_free(key->ossl_key);
 	free(key);
 	return;
+}
+
+int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen) {
+	BIO* bio;
+	bio = BIO_new(BIO_s_mem());
+	unsigned char* bio_data;
+	unsigned char* buffer;
+	long len;
+	if (bio == NULL) {
+		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+		return 0;
+	}
+	if (PEM_write_bio_PrivateKey(bio, key->ossl_key, 
+			NULL, NULL, 0, NULL, NULL) == 0) {
+		log_printf(LOG_ERROR, "Unable to write PEM string for key\n");
+		BIO_free(bio);
+		return 0;
+	}
+	len = BIO_get_mem_data(bio, &bio_data);
+	buffer = malloc(len);
+	if (buffer == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate buffer for key\n");
+		BIO_free(bio);
+		return 0;
+	}
+	memcpy(buffer, bio_data, len);
+	*datalen = (int)len;
+	*data = buffer;
+	BIO_free(bio);
+	return 1;
 }
 

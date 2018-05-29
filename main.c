@@ -5,6 +5,7 @@
 #include "transaction.h"
 #include "block.h"
 #include "blockchain.h"
+#include "wallet.h"
 
 void test_chain();
 void test_transactions();
@@ -21,6 +22,12 @@ int main(int argc, char* argv[]) {
 
 	test_transactions();
 	test_chain();
+
+	wallet_t* wallet;
+	wallet = wallet_new();
+	wallet_add_address(wallet);
+	wallet_save(wallet, "test.wallet");
+	wallet_free(wallet);
 
 	util_deinit_crypto();
 	log_close();
