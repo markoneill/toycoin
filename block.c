@@ -1,6 +1,7 @@
 #include <openssl/evp.h> /* for openssl message digest interface */
 #include <stdio.h> /* for sprintf */
 #include <string.h> /* for memcpy */
+#include <stdlib.h> /* for calloc */
 
 #include "block.h"
 #include "log.h"
