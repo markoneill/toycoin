@@ -31,4 +31,4 @@ $(TEXEC): $(TOBJS)
 	$(CC) -c $(CFLAGS) -o $@ $<
  
 clean:
-	rm -f $(EXEC) $(TEXEC) $(OBJS) $($TOBJS)
+	rm -f $(EXEC) $(TEXEC) $(OBJS) $(TOBJS)

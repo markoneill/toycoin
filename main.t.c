@@ -1,13 +1,11 @@
-#include <openssl/evp.h>
 #include <stdlib.h>
 #include <check.h>
 
 #include "log.h"
+#include "util.h"
 #include "transaction.h"
 #include "block.h"
 #include "blockchain.h"
-
-const EVP_MD* hash_alg;
 
 Suite* empty_suite(void);
 Suite* wallet_suite(void);
@@ -29,8 +27,7 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Failed to initialize log\n");
 		exit(EXIT_FAILURE);
 	}
-	OpenSSL_add_all_digests();
-	hash_alg = EVP_sha256();
+	util_init_crypto();
 
 	/* Tests */
 	sr = srunner_create(empty_suite());
@@ -38,7 +35,7 @@ int main(int argc, char* argv[]) {
 	srunner_run_all(sr, CK_NORMAL);
 	num_fails = srunner_ntests_failed(sr);
 
-	EVP_cleanup();
+	util_deinit_crypto();
 	log_close();
 	if (num_fails != 0) {
 		return EXIT_FAILURE;

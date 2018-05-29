@@ -15,8 +15,6 @@ static int hash_pubkey(EVP_PKEY* keypair, unsigned char* digest, size_t* digest_
 static coin_t* coin_new(transaction_t* transaction, int index);
 static void coin_free(coin_t* coin);
 
-extern const EVP_MD* hash_alg;
-
 address_t* address_new(void) {
 	EVP_PKEY* keypair;
 	address_t* address;
@@ -102,7 +100,6 @@ int generate_rsa_key(EVP_PKEY** key_out, int bits) {
 }
 
 int hash_pubkey(EVP_PKEY* keypair, unsigned char* digest, size_t* digest_len) {
-	EVP_MD_CTX* md_ctx;
 	unsigned char* encoded_pubkey;
 	int encoded_len;
 
@@ -123,35 +120,13 @@ int hash_pubkey(EVP_PKEY* keypair, unsigned char* digest, size_t* digest_len) {
 		return 0;
 	}
 
-	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	md_ctx = EVP_MD_CTX_new();
-	#else
-	md_ctx = EVP_MD_CTX_create();
-	#endif
-
-	if (EVP_DigestInit_ex(md_ctx, hash_alg, NULL) == 0) {
-		log_printf(LOG_ERROR, "Failed to init digest\n");		
-		free(encoded_pubkey);
-		return 0;
-	}
-	if (EVP_DigestUpdate(md_ctx, encoded_pubkey, encoded_len) == 0) {
-		log_printf(LOG_ERROR, "Failed to update digest\n");
-		free(encoded_pubkey);
-		return 0;
-	}
-	if (EVP_DigestFinal_ex(md_ctx, digest, digest_len) == 0) {
-		log_printf(LOG_ERROR, "Failed to finalize digest\n");
+	if (util_hash(encoded_pubkey, encoded_len, digest, digest_len) == 0) {
+		log_printf(LOG_ERROR, "Unable to hash public key\n");
 		free(encoded_pubkey);
 		return 0;
 	}
 
 	free(encoded_pubkey);
-
-	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	EVP_MD_CTX_free(md_ctx);
-	#else
-	EVP_MD_CTX_destroy(md_ctx);
-	#endif
 	return 1;
 }
 

@@ -1,12 +1,10 @@
-#include <openssl/evp.h>
 #include <stdlib.h>
 
 #include "log.h"
+#include "util.h"
 #include "transaction.h"
 #include "block.h"
 #include "blockchain.h"
-
-const EVP_MD* hash_alg;
 
 void test_chain();
 void test_transactions();
@@ -19,13 +17,12 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Failed to initialize log\n");
 		exit(EXIT_FAILURE);
 	}
-	OpenSSL_add_all_digests();
-	hash_alg = EVP_sha256();
+	util_init_crypto();
 
 	test_transactions();
 	test_chain();
 
-	EVP_cleanup();
+	util_deinit_crypto();
 	log_close();
 	return 0;
 }

@@ -7,13 +7,13 @@
  */
 
 #include <time.h> /* for timespec */
-#include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
+#include "util.h"
 
 typedef struct block {
 	/* Core members */
 	int version; /* block format version */
 	struct timespec timestamp; /* time created */
-	unsigned char prev_digest[EVP_MAX_MD_SIZE]; /* hash of prev block */
+	unsigned char prev_digest[MAX_DIGEST_LEN]; /* hash of prev block */
 	int nonce; /* nonce to increment for mining */
 	int target_bits; /* number of leading zeroes for target difficulty */
 	int num_transactions; /* number of transactions in block */

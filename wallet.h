@@ -1,7 +1,6 @@
 #ifndef WALLET_H
 #define WALLET_H
 
-#include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
 #include "transaction.h"
 #include "address.h"
 

@@ -1,13 +1,12 @@
-#include <openssl/evp.h> /* for openssl message digest interface */
 #include <stdio.h> /* for sprintf */
 #include <string.h> /* for memcpy */
 #include <stdlib.h> /* for calloc */
 
 #include "block.h"
+#include "util.h"
 #include "log.h"
 
 #define BLOCK_VERSION	1
-extern const EVP_MD* hash_alg;
 
 const char serial_format[] = "version:%04X\n"
 			     "timestamp:%lld.%.9ld\n"
@@ -27,7 +26,7 @@ block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len) {
 	}
 	new_block->version = BLOCK_VERSION;
 	clock_gettime(CLOCK_REALTIME, &new_block->timestamp);
-	memcpy(new_block->prev_digest, prev_digest, EVP_MD_size(hash_alg));
+	memcpy(new_block->prev_digest, prev_digest, util_digestlen());
 	return new_block;
 }
 
@@ -37,12 +36,12 @@ block_t* block_new_genesis() {
 	size_t digest_len;
 
 	/* Genesis block has zeroes for its hash */
-	digest = calloc(1, EVP_MD_size(hash_alg));
+	digest = calloc(1, util_digestlen());
 	if (digest == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
 		return NULL;
 	}
-	block = block_new(0, digest, EVP_MD_size(hash_alg));
+	block = block_new(0, digest, util_digestlen());
 	if (block == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis block\n");
 		free(digest);
@@ -58,7 +57,6 @@ void block_free(block_t* block) {
 }
 
 int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
-	EVP_MD_CTX* md_ctx;
 	unsigned char* serialized_block;
 	size_t serial_len;
 	unsigned char* digest_data;
@@ -70,39 +68,20 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 
 	//log_printf(LOG_DEBUG, "Block serialization:\n%s\n", serialized_block);
 
-	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	md_ctx = EVP_MD_CTX_new();
-	#else
-	md_ctx = EVP_MD_CTX_create();
-	#endif
-
-	digest_data = (unsigned char*)malloc(EVP_MAX_MD_SIZE);
+	digest_data = (unsigned char*)malloc(util_digestlen());
 	if (digest_data == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate digest\n");
 		return 0;
 	}
 
-	if (EVP_DigestInit_ex(md_ctx, hash_alg, NULL) == 0) {
-		log_printf(LOG_ERROR, "Failed to init digest\n");		
+	if (util_hash(serialized_block, serial_len, digest_data, 
+			&digest_datalen) == 0) {
+		log_printf(LOG_ERROR, "Unable to hash block\n");
 		return 0;
 	}
-	if (EVP_DigestUpdate(md_ctx, serialized_block, serial_len) == 0) {
-		log_printf(LOG_ERROR, "Failed to update digest\n");
-		return 0;
-	}
-	if (EVP_DigestFinal_ex(md_ctx, digest_data, &digest_datalen) == 0) {
-		log_printf(LOG_ERROR, "Failed to finalize digest\n");
-		return 0;
-	}
-
 	*digest = digest_data;
 	*digest_len = digest_datalen;
 
-	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	EVP_MD_CTX_free(md_ctx);
-	#else
-	EVP_MD_CTX_destroy(md_ctx);
-	#endif
 	free(serialized_block);
 	return 1;
 }
@@ -111,7 +90,7 @@ int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 	unsigned char* block_data;
 	char* digest_str;
 	size_t block_data_len;
-	if (digest_to_str(block->prev_digest, EVP_MD_size(hash_alg),
+	if (digest_to_str(block->prev_digest, util_digestlen(),
 			&digest_str) == 0) {
 		log_printf(LOG_ERROR, "Failed to convert digest to string\n");
 		return 0;
