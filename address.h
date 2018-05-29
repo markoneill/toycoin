@@ -2,6 +2,7 @@
 #define ADDRESS_H
 
 #include "transaction.h"
+#include "util.h"
 
 typedef struct coin {
 	transaction_t* transaction;
@@ -9,9 +10,9 @@ typedef struct coin {
 } coin_t;
 
 typedef struct address {
-	unsigned char id[EVP_MAX_MD_SIZE]; /* digest of pubkey */
+	unsigned char id[MAX_DIGEST_LEN]; /* digest of pubkey */
 	int id_len;
-	EVP_PKEY* keypair;
+	key_t* keypair;
 	coin_t* coin; /* coin associated with address, if any */
 	struct address* next; /* pointer to next address in wallet */
 } address_t;

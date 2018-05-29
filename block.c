@@ -140,7 +140,7 @@ int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 int digest_to_str(unsigned char* digest, size_t digest_len, char** str) {
 	char* tmp;
 	int i;
-	tmp = (char*)malloc(EVP_MAX_MD_SIZE * 2 + 1);
+	tmp = (char*)malloc(util_digestlen() * 2 + 1);
 	if (tmp == NULL) {
 		log_printf(LOG_ERROR, "Failed to allocate digest space\n");
 		return 0;
