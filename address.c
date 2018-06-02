@@ -55,6 +55,28 @@ int address_serialize(address_t* addr, unsigned char** data, int* datalen) {
 	return 1;
 }
 
+address_t* address_deserialize(unsigned char* data, int datalen) {
+	address_t* address;
+	cryptokey_t* keypair;
+	keypair = util_deserialize_key(data, datalen);
+	if (keypair == NULL) {
+		log_printf(LOG_ERROR, "Unable to load keypair\n");
+		return NULL;
+	}
+
+	address = calloc(1, sizeof(address_t));
+	if (address == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate address\n");
+		util_free_key(keypair);
+		return NULL;
+	}
+
+	address->keypair = keypair;
+	address->coin = NULL;
+	address->next = NULL;
+	return address;
+}
+
 coin_t* coin_new(transaction_t* transaction, int index) {
 	coin_t* coin;
 	coin = calloc(1, sizeof(coin_t));

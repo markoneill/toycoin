@@ -159,10 +159,11 @@ void util_free_key(cryptokey_t* key) {
 
 int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen) {
 	BIO* bio;
-	bio = BIO_new(BIO_s_mem());
 	unsigned char* bio_data;
 	unsigned char* buffer;
 	long len;
+
+	bio = BIO_new(BIO_s_mem());
 	if (bio == NULL) {
 		log_printf(LOG_ERROR, "Unable to create bio for key\n");
 		return 0;
@@ -185,5 +186,32 @@ int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen) {
 	*data = buffer;
 	BIO_free(bio);
 	return 1;
+}
+
+cryptokey_t* util_deserialize_key(unsigned char* data, int datalen) {
+	cryptokey_t* key;
+	EVP_PKEY* ossl_key;
+	BIO* bio;
+
+	bio = BIO_new_mem_buf(data, datalen);
+	if (bio == NULL) {
+		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+		return NULL;
+	}
+	ossl_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+	if (ossl_key == NULL) {
+		log_printf(LOG_ERROR, "Unable to read key from bio\n");
+		BIO_free(bio);
+		return NULL;
+	}
+	BIO_free(bio);
+	key = calloc(1, sizeof(cryptokey_t));
+	if (key == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate cryptokey\n");
+		return NULL;
+	}
+
+	key->ossl_key = ossl_key;
+	return key;
 }
 

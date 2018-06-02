@@ -6,7 +6,7 @@
 #include "wallet.h"
 #include "log.h"
 
-#define MAX_SERIAL_ENTRY	32
+#define MAX_SERIAL_HEADER_LEN	32
 
 wallet_t* wallet_new(void) {
 	wallet_t* wallet;
@@ -35,22 +35,6 @@ void wallet_free(wallet_t* wallet) {
 	return;
 }
 
-wallet_t* wallet_load(char* filepath) {
-	FILE* wallet_file;
-	wallet_t* wallet;
-	wallet_file = fopen(filepath, "r");
-	if (wallet_file == NULL) {
-		log_printf(LOG_ERROR, "Unable to open wallet file: %s\n",
-			 strerror(errno));
-		return NULL;
-	}
-
-	
-
-	fclose(wallet_file);
-	return wallet;
-}
-
 int wallet_add_address(wallet_t* wallet) {
 	address_t* last_addr;
 	address_t* new_addr;
@@ -75,11 +59,69 @@ int wallet_add_address(wallet_t* wallet) {
 	return 1;
 }
 
+wallet_t* wallet_load(char* filepath) {
+	FILE* wallet_file;
+	wallet_t* wallet;
+	char size_str[MAX_SERIAL_HEADER_LEN];
+	unsigned char* data;
+	address_t* head_addr;
+	address_t* cur_addr;
+	address_t* prev_addr;
+	int datalen;
+	wallet_file = fopen(filepath, "r");
+	if (wallet_file == NULL) {
+		log_printf(LOG_ERROR, "Unable to open wallet file: %s\n",
+			 strerror(errno));
+		return NULL;
+	}
+
+	head_addr = NULL;
+	while (fgets(size_str, MAX_SERIAL_HEADER_LEN, wallet_file) != NULL) {
+		datalen = strtol(size_str, NULL, 10);
+		data = (unsigned char*)malloc(datalen);
+		if (data == NULL) {
+			log_printf(LOG_ERROR, 
+				"Unable to allocate address data\n");
+			return NULL;
+		}
+		if (fread(data, datalen, 1, wallet_file) != 1) {
+			log_printf(LOG_ERROR, "failed to read address\n");
+			free(data);
+			return NULL;
+		}
+		cur_addr = address_deserialize(data, datalen);
+		if (cur_addr == NULL) {
+			log_printf(LOG_ERROR, "failed to load address\n");
+			free(data);
+			return NULL;
+		}
+		free(data);
+		if (head_addr == NULL) {
+			head_addr = cur_addr;
+		}
+		else {
+			prev_addr->next = cur_addr;
+		}
+		prev_addr = cur_addr;
+	}
+
+	wallet = wallet_new();
+	if (wallet == NULL) {
+		log_printf(LOG_ERROR, "failed to allocate wallet\n");
+		free(data);
+	}
+	wallet->addresses = head_addr;
+
+	fclose(wallet_file);
+	return wallet;
+}
+
+
 int wallet_save(wallet_t* wallet, char* filepath) {
 	FILE* wallet_file;
 	address_t* cur_addr;
 	unsigned char* serialized_addr;
-	char size_str[MAX_SERIAL_ENTRY];
+	char size_str[MAX_SERIAL_HEADER_LEN];
 	int len;
 	int written;
 
@@ -96,19 +138,20 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 			log_printf(LOG_ERROR, "Unable to serialize address\n");
 			return 0;
 		}
-		written = snprintf(size_str, MAX_SERIAL_ENTRY-1, "%d\n", len);
-		if (written < 0 || written == MAX_SERIAL_ENTRY-1) {
+		written = snprintf(size_str, MAX_SERIAL_HEADER_LEN-1, "%d\n",
+			 len);
+		if (written < 0 || written == MAX_SERIAL_HEADER_LEN-1) {
 			log_printf(LOG_ERROR,"Failed to stringify size: %s\n",
 				strerror(errno));
 			free(serialized_addr);
 		}
-		if (fwrite(size_str, 1, written, wallet_file) != written) {
+		if (fwrite(size_str, written, 1, wallet_file) != 1) {
 			log_printf(LOG_ERROR,"Failed to write size: %s\n",
 				strerror(errno));
 			free(serialized_addr);
 			return 0;
 		}
-		if (fwrite(serialized_addr, 1, len, wallet_file) != len) {
+		if (fwrite(serialized_addr, len, 1, wallet_file) != 1) {
 			log_printf(LOG_ERROR,"Failed to write address: %s\n",
 				strerror(errno));
 			free(serialized_addr);
@@ -122,3 +165,4 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 	fclose(wallet_file);
 	return 1;
 }
+
