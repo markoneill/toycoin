@@ -14,4 +14,6 @@ void wallet_free(wallet_t* wallet);
 int wallet_save(wallet_t* wallet, char* filepath);
 wallet_t* wallet_load(char* filepath);
 
+//int wallet_transfer_to_address(int amount);
+
 #endif

@@ -4,15 +4,13 @@
 
 #include "address.h"
 #include "transaction.h"
+#include "coin.h"
 #include "log.h"
-
-static coin_t* coin_new(transaction_t* transaction, int index);
-static void coin_free(coin_t* coin);
 
 address_t* address_new(void) {
 	cryptokey_t* keypair;
 	address_t* address;
-	address = calloc(1, sizeof(address_t));
+	address = (address_t*)calloc(1, sizeof(address_t));
 	if (address == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate new address\n");
 		return NULL;
@@ -24,7 +22,7 @@ address_t* address_new(void) {
 		return NULL;
 	}
 	
-	if (util_hash_pubkey(keypair, address->id, &address->id_len) == 0) {
+	if (util_hash_pubkey(keypair, address->digest, &address->digest_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash pubkey\n");
 		util_free_key(keypair);
 		free(address);
@@ -64,7 +62,7 @@ address_t* address_deserialize(unsigned char* data, int datalen) {
 		return NULL;
 	}
 
-	address = calloc(1, sizeof(address_t));
+	address = (address_t*)calloc(1, sizeof(address_t));
 	if (address == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate address\n");
 		util_free_key(keypair);
@@ -77,20 +75,3 @@ address_t* address_deserialize(unsigned char* data, int datalen) {
 	return address;
 }
 
-coin_t* coin_new(transaction_t* transaction, int index) {
-	coin_t* coin;
-	coin = calloc(1, sizeof(coin_t));
-	if (coin == NULL) {
-		log_printf(LOG_ERROR, "Unable to allocate new coin\n");
-		return NULL;
-	}
-	coin->transaction = transaction;
-	coin->index = index;
-	return coin;
-}
-
-void coin_free(coin_t* coin) {
-	coin->transaction = NULL;
-	free(coin);
-	return;
-}

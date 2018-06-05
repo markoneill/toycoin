@@ -10,6 +10,7 @@
 Suite* empty_suite(void);
 Suite* wallet_suite(void);
 Suite* address_suite(void);
+Suite* util_suite(void);
 
 Suite* empty_suite(void) {
 	Suite* s;
@@ -30,10 +31,12 @@ int main(int argc, char* argv[]) {
 
 	/* Tests */
 	sr = srunner_create(empty_suite());
+	srunner_add_suite(sr, util_suite());
 	srunner_add_suite(sr, address_suite());
 	srunner_add_suite(sr, wallet_suite());
 	srunner_run_all(sr, CK_NORMAL);
 	num_fails = srunner_ntests_failed(sr);
+	srunner_free(sr);
 
 	util_deinit_crypto();
 	log_close();

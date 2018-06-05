@@ -7,19 +7,28 @@
 
 #include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
 
+#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 #define MAX_DIGEST_LEN	EVP_MAX_MD_SIZE
+#define MAX_ID_LEN	ROUND_UP((MAX_DIGEST_LEN / 3) * 4, 4)
 
 typedef struct cryptokey {
 	EVP_PKEY* ossl_key;
 } cryptokey_t;
 
+/* Digest functions */
 void util_init_crypto(void);
 void util_deinit_crypto(void);
 int util_digestlen(void);
+
+/* Key functions */
 cryptokey_t* util_generate_key(int bits);
-int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len);
 void util_free_key(cryptokey_t* key);
+int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len);
 int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen);
 cryptokey_t* util_deserialize_key(unsigned char* data, int datalen);
+
+/* Base64 functions */
+int util_base64_encode(const unsigned char* input, size_t inlen, 
+		char* output, size_t* outlen);
 
 #endif

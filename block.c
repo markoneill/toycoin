@@ -36,7 +36,7 @@ block_t* block_new_genesis() {
 	size_t digest_len;
 
 	/* Genesis block has zeroes for its hash */
-	digest = calloc(1, util_digestlen());
+	digest = (unsigned char*)calloc(1, util_digestlen());
 	if (digest == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
 		return NULL;

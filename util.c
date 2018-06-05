@@ -215,3 +215,32 @@ cryptokey_t* util_deserialize_key(unsigned char* data, int datalen) {
 	return key;
 }
 
+int util_base64_encode(const unsigned char* input, size_t inlen, 
+		char* output, size_t* outlen) {
+	BIO *bio;
+	BIO *bio_b64;
+	char* buffer_ptr;
+	int written;
+
+	bio_b64 = BIO_new(BIO_f_base64());
+	bio = BIO_new(BIO_s_mem());
+	bio = BIO_push(bio_b64, bio);
+
+	BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+	BIO_set_close(bio, BIO_CLOSE);
+	written = BIO_write(bio, input, inlen);
+	if (written <= 0) {
+		log_printf(LOG_ERROR, "Failed to write base64 input\n");
+		BIO_free_all(bio);
+		return 0;
+	}
+	BIO_flush(bio);
+
+	written = BIO_get_mem_data(bio, &buffer_ptr);
+	memcpy(output, buffer_ptr, written);
+	output[written] = '\0';
+	BIO_free_all(bio);
+	*outlen = written;
+	return 1;
+}
+
