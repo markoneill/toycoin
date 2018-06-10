@@ -15,7 +15,7 @@ address_t* address_new(void) {
 		log_printf(LOG_ERROR, "Unable to allocate new address\n");
 		return NULL;
 	}
-	keypair = util_generate_key(4096);
+	keypair = util_generate_key(2048);
 	if (keypair == NULL) {
 		log_printf(LOG_ERROR, "Unable to generate key\n");
 		free(address);

@@ -8,14 +8,12 @@
 
 #define BLOCK_VERSION	1
 
-const char serial_format[] = "version:%04X\n"
-			     "timestamp:%lld.%.9ld\n"
+static const char serial_format[] = "version:%0d\n"
+			     "timestamp:%ld.%.9ld\n"
 			     "prev_digest:%s\n"
 			     "nonce:%04X\n"
-                             "target_bits:%04X\n"
-			     "num_transactions:%04X\n";
-
-static int digest_to_str(unsigned char* digest, size_t digest_len, char** str);
+                             "target_bits:%d\n"
+			     "num_transactions:%d\n";
 
 block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len) {
 	block_t* new_block;
@@ -30,10 +28,9 @@ block_t* block_new(int index, unsigned char* prev_digest, size_t digest_len) {
 	return new_block;
 }
 
-block_t* block_new_genesis() {
+block_t* block_new_genesis(void) {
 	block_t* block;
 	unsigned char* digest;
-	size_t digest_len;
 
 	/* Genesis block has zeroes for its hash */
 	digest = (unsigned char*)calloc(1, util_digestlen());
@@ -57,7 +54,7 @@ void block_free(block_t* block) {
 }
 
 int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
-	unsigned char* serialized_block;
+	char* serialized_block;
 	size_t serial_len;
 	unsigned char* digest_data;
 	unsigned int digest_datalen;
@@ -74,8 +71,8 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 		return 0;
 	}
 
-	if (util_hash(serialized_block, serial_len, digest_data, 
-			&digest_datalen) == 0) {
+	if (util_hash((unsigned char*)serialized_block, serial_len, 
+			digest_data, &digest_datalen) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash block\n");
 		return 0;
 	}
@@ -86,11 +83,11 @@ int block_hash(block_t* block, unsigned char** digest, size_t* digest_len) {
 	return 1;
 }
 
-int block_serialize(block_t* block, unsigned char** data, size_t* len) {
-	unsigned char* block_data;
+int block_serialize(block_t* block, char** data, size_t* len) {
+	char* block_data;
 	char* digest_str;
 	size_t block_data_len;
-	if (digest_to_str(block->prev_digest, util_digestlen(),
+	if (util_bytes_to_str(block->prev_digest, util_digestlen(),
 			&digest_str) == 0) {
 		log_printf(LOG_ERROR, "Failed to convert digest to string\n");
 		return 0;
@@ -110,7 +107,7 @@ int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 		free(digest_str);
 		return 0;
 	}
-	block_data = (unsigned char*)calloc(1, block_data_len + 1);
+	block_data = (char*)calloc(1, block_data_len + 1);
 	if (block_data == NULL) {
 		log_printf(LOG_ERROR, "Failed to allocate memory for block\n");
 		free(digest_str);
@@ -133,22 +130,10 @@ int block_serialize(block_t* block, unsigned char** data, size_t* len) {
 	}
 	free(digest_str);
 	*data = block_data;
-	*len = block_data_len;
-	return 1;
-}
 
-int digest_to_str(unsigned char* digest, size_t digest_len, char** str) {
-	char* tmp;
-	int i;
-	tmp = (char*)malloc(digest_len * 2 + 1);
-	if (tmp == NULL) {
-		log_printf(LOG_ERROR, "Failed to allocate digest space\n");
-		return 0;
+	if (len != NULL) {
+		*len = block_data_len;
 	}
-	for (i = 0; i < digest_len; i++) {
-		sprintf(tmp + (i*2), "%02X", digest[i]);
-	}
-	*str = tmp;
 	return 1;
 }
 

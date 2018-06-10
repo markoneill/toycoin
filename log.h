@@ -2,7 +2,6 @@
 #define LOG_H
 
 typedef enum log_level {
-	LOG_BENCHMARK,
 	LOG_DEBUG,
 	LOG_INFO,
 	LOG_WARNING,

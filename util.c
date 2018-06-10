@@ -2,6 +2,8 @@
 #include <openssl/crypto.h> /* for RSA key generation */
 #include <openssl/pem.h> /* for PEM format read and write */
 #include <openssl/bio.h> /* for BIO operations */
+#include <openssl/engine.h> /* for ENGINE_cleanup() */
+#include <string.h> /* for memcpy */
 #include "log.h"
 #include "util.h"
 
@@ -23,7 +25,7 @@ int util_digestlen(void) {
 	return EVP_MD_size(hash_alg);
 }
 
-int util_hash(unsigned char* data, size_t* datalen, unsigned char* digest, 
+int util_hash(unsigned char* data, size_t datalen, unsigned char* digest, 
 		unsigned int* digestlen) {
 	EVP_MD_CTX* md_ctx;
 	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -50,6 +52,22 @@ int util_hash(unsigned char* data, size_t* datalen, unsigned char* digest,
 	#else
 	EVP_MD_CTX_destroy(md_ctx);
 	#endif
+	return 1;
+}
+
+int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str) {
+	char* tmp;
+	int i;
+	tmp = (char*)malloc(buffer_len * 2 + 1);
+	if (tmp == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate digest space\n");
+		return 0;
+	}
+	for (i = 0; i < buffer_len; i++) {
+		sprintf(tmp + (i*2), "%02X", buffer[i]);
+	}
+	tmp[buffer_len * 2] =  '\0';
+	*str = tmp;
 	return 1;
 }
 
@@ -115,7 +133,8 @@ cryptokey_t* util_generate_key(int bits) {
 	return key;
 }
 
-int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len) {
+int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
+		unsigned int* digestlen) {
 	EVP_PKEY* keypair;
 	unsigned char* encoded_pubkey;
 	unsigned char* encoded_pubkey_end;
@@ -141,7 +160,7 @@ int util_hash_pubkey(cryptokey_t* key, unsigned char* digest, size_t* digest_len
 		return 0;
 	}
 
-	if (util_hash(encoded_pubkey, encoded_len, digest, digest_len) == 0) {
+	if (util_hash(encoded_pubkey, encoded_len, digest, digestlen) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash public key\n");
 		free(encoded_pubkey);
 		return 0;
@@ -175,14 +194,53 @@ int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen) {
 		return 0;
 	}
 	len = BIO_get_mem_data(bio, &bio_data);
-	buffer = malloc(len);
+	buffer = malloc(len + 1);
 	if (buffer == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate buffer for key\n");
 		BIO_free(bio);
 		return 0;
 	}
 	memcpy(buffer, bio_data, len);
-	*datalen = (int)len;
+	buffer[len] = '\0';
+
+	if (datalen != NULL) {
+		*datalen = (int)len + 1;
+	}
+	*data = buffer;
+	BIO_free(bio);
+	return 1;
+}
+
+int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen) {
+	BIO* bio;
+	char* bio_data;
+	char* buffer;
+	long len;
+
+	bio = BIO_new(BIO_s_mem());
+	if (bio == NULL) {
+		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+		return 0;
+	}
+	if (PEM_write_bio_PUBKEY(bio, key->ossl_key) == 0) {
+		log_printf(LOG_ERROR, "Unable to write PEM string for key\n");
+		BIO_free(bio);
+		return 0;
+	}
+	len = BIO_get_mem_data(bio, &bio_data);
+	buffer = malloc(len + 1);
+	if (buffer == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate buffer for key\n");
+		BIO_free(bio);
+		return 0;
+	}
+	memcpy(buffer, bio_data, len);
+	buffer[len] = '\0';
+
+	if (datalen != NULL) {
+		*datalen = (int)len + 1;
+	}
+
 	*data = buffer;
 	BIO_free(bio);
 	return 1;
@@ -240,7 +298,65 @@ int util_base64_encode(const unsigned char* input, size_t inlen,
 	memcpy(output, buffer_ptr, written);
 	output[written] = '\0';
 	BIO_free_all(bio);
-	*outlen = written;
+	if (outlen != NULL) {
+		*outlen = written;
+	}
+	return 1;
+}
+
+int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
+		unsigned char** sig_out, size_t* siglen_out) {
+	EVP_PKEY_CTX* ctx;
+	unsigned char* sig;
+	size_t siglen;
+	ctx = EVP_PKEY_CTX_new(key->ossl_key, NULL);
+	if (ctx == NULL) {
+		log_printf(LOG_ERROR, "Unable to initialize pkey context\n");
+		return 0;
+	}
+
+	if (EVP_PKEY_sign_init(ctx) <= 0) {
+		log_printf(LOG_ERROR, "Unable to init signing\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0) {
+		log_printf(LOG_ERROR, "Unable to set padding for signing\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_CTX_set_signature_md(ctx, hash_alg) <= 0) {
+		log_printf(LOG_ERROR, "Unable to set hash alg for signing\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	/* Get length of signature */
+	if (EVP_PKEY_sign(ctx, NULL, &siglen, digest, digestlen) <= 0) {
+		log_printf(LOG_ERROR, "Unable to get signature length\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	sig = (unsigned char*)malloc(siglen);
+	if (sig == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate signature\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_sign(ctx, sig, &siglen, digest, digestlen) <= 0) {
+		log_printf(LOG_ERROR, "Unable to sign digest\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	*sig_out = sig;
+	*siglen_out = siglen;
+
+	EVP_PKEY_CTX_free(ctx);
 	return 1;
 }
 

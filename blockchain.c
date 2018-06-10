@@ -103,15 +103,14 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 }
 
 void blockchain_to_file(blockchain_t* chain, FILE* fd) {
-	unsigned char* data;
-	size_t len;
+	char* data;
 	block_t* cur_block;
 	if (fd == NULL) {
 		return;
 	}
 	cur_block = chain->head;
 	while (cur_block != NULL) {
-		if (block_serialize(cur_block, &data, &len) == 0) {
+		if (block_serialize(cur_block, &data, NULL) == 0) {
 			log_printf(LOG_ERROR, "Unable to serialize block\n");
 			return;
 		}

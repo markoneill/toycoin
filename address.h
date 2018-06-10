@@ -7,7 +7,7 @@
 
 typedef struct address {
 	unsigned char digest[MAX_DIGEST_LEN]; /* digest of pubkey */
-	int digest_len;
+	unsigned int digest_len;
 	cryptokey_t* keypair;
 	coin_t* coin; /* coin associated with address, if any */
 	struct address* next; /* pointer to next address in wallet */

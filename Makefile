@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS=-g -w -Wall
+CFLAGS=-g -Wall
 LDFLAGS= 
  
 EXEC:= node

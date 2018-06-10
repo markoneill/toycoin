@@ -2,12 +2,25 @@
 #include "util.h"
 
 START_TEST(util_base64_01) {
-	unsigned char to_encode[] = "base64test";
-	unsigned char encoded[] = "YmFzZTY0dGVzdA==";
+	const char to_encode[] = "base64test";
+	char encoded[] = "YmFzZTY0dGVzdA==";
 	char encoded_test[MAX_ID_LEN];
 	size_t len;
-	util_base64_encode(to_encode, strlen(to_encode), &encoded_test, &len);
+	util_base64_encode((unsigned char*)to_encode, strlen(to_encode),
+		 encoded_test, &len);
 	fail_unless(strncmp(encoded, encoded_test, len) == 0, "base64 error");
+}
+END_TEST
+
+START_TEST(util_pubkey_01) {
+	cryptokey_t* key;
+	char* str;
+	key = util_generate_key(2048);
+	fail_unless(key, "null key");
+	fail_unless(util_serialize_pubkey(key, &str, NULL), 
+		"pubkey serial fail");
+	free(str);
+	util_free_key(key);
 }
 END_TEST
 
@@ -20,5 +33,8 @@ Suite* util_suite(void) {
 	tcase_add_test(tc, util_base64_01);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("util_pubkey");
+	tcase_add_test(tc, util_pubkey_01);
+	suite_add_tcase(s, tc);
 	return s;
 }

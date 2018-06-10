@@ -129,7 +129,7 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 	if (wallet_file == NULL) {
 		log_printf(LOG_ERROR, "Unable to open wallet file: %s\n",
 			 strerror(errno));
-		return NULL;
+		return 0;
 	}
 
 	cur_addr = wallet->addresses;
