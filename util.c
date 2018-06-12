@@ -60,7 +60,7 @@ int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str) {
 	int i;
 	tmp = (char*)malloc(buffer_len * 2 + 1);
 	if (tmp == NULL) {
-		log_printf(LOG_ERROR, "Failed to allocate digest space\n");
+		log_printf(LOG_ERROR, "Failed to allocate string space\n");
 		return 0;
 	}
 	for (i = 0; i < buffer_len; i++) {
@@ -68,6 +68,31 @@ int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str) {
 	}
 	tmp[buffer_len * 2] =  '\0';
 	*str = tmp;
+	return 1;
+}
+
+int util_str_to_bytes(char* str, size_t len, unsigned char** bufout,
+		size_t* outlen) {
+	unsigned char* buffer;
+	size_t buflen;
+	unsigned int i;
+	
+	buflen = len / 2;
+	buffer = (unsigned char*)malloc(buflen);
+	if (buffer == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate buffer space\n");
+		return 0;
+	}
+
+	for (i = 0; i < buflen; i++) {
+		sscanf(str, "%02hhX", (char*)&buffer[i]);
+		str += 2;
+	}
+
+	*bufout = buffer;
+	if (outlen != NULL) {
+		*outlen = buflen;
+	}
 	return 1;
 }
 
@@ -129,8 +154,24 @@ cryptokey_t* util_generate_key(int bits) {
 	}
 
 	key->ossl_key = keypair;
+	key->references = 1;
 	BN_free(bn_e);
 	return key;
+}
+
+cryptokey_t* util_copy_key(cryptokey_t* key) {
+	cryptokey_t* copy;
+	/*copy = calloc(1, sizeof(cryptokey_t));
+	if (copy == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate cryptokey copy\n");
+		return NULL;
+	}
+	EVP_PKEY_dup(key->ossl_key);*/
+
+	copy = key;
+	copy->references++;
+	copy->ossl_key = key->ossl_key;
+	return copy;
 }
 
 int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
@@ -171,8 +212,14 @@ int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
 }
 
 void util_free_key(cryptokey_t* key) {
-	EVP_PKEY_free(key->ossl_key);
-	free(key);
+	if (key == NULL) {
+		return;
+	}
+	key->references--;
+	if (key->references == 0) {
+		EVP_PKEY_free(key->ossl_key);
+		free(key);
+	}
 	return;
 }
 
@@ -246,7 +293,7 @@ int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen) {
 	return 1;
 }
 
-cryptokey_t* util_deserialize_key(unsigned char* data, int datalen) {
+cryptokey_t* util_deserialize_key(char* data, int datalen) {
 	cryptokey_t* key;
 	EVP_PKEY* ossl_key;
 	BIO* bio;
@@ -270,6 +317,35 @@ cryptokey_t* util_deserialize_key(unsigned char* data, int datalen) {
 	}
 
 	key->ossl_key = ossl_key;
+	key->references = 1;
+	return key;
+}
+
+cryptokey_t* util_deserialize_pubkey(char* data, int datalen) {
+	cryptokey_t* key;
+	EVP_PKEY* ossl_key;
+	BIO* bio;
+
+	bio = BIO_new_mem_buf(data, datalen);
+	if (bio == NULL) {
+		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+		return NULL;
+	}
+	ossl_key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+	if (ossl_key == NULL) {
+		log_printf(LOG_ERROR, "Unable to read key from bio\n");
+		BIO_free(bio);
+		return NULL;
+	}
+	BIO_free(bio);
+	key = calloc(1, sizeof(cryptokey_t));
+	if (key == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate cryptokey\n");
+		return NULL;
+	}
+
+	key->ossl_key = ossl_key;
+	key->references = 1;
 	return key;
 }
 

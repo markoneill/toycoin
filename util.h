@@ -13,6 +13,7 @@
 
 typedef struct cryptokey {
 	EVP_PKEY* ossl_key;
+	int references;
 } cryptokey_t;
 
 /* Digest functions */
@@ -23,13 +24,15 @@ int util_digestlen(void);
 /* Key functions */
 cryptokey_t* util_generate_key(int bits);
 void util_free_key(cryptokey_t* key);
+cryptokey_t* util_copy_key(cryptokey_t* key);
 int util_hash(unsigned char* data, size_t datalen, unsigned char* digest, 
 		unsigned int* digestlen);
 int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
 		unsigned int* digestlen);
 int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen);
 int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen);
-cryptokey_t* util_deserialize_key(unsigned char* data, int datalen);
+cryptokey_t* util_deserialize_key(char* data, int datalen);
+cryptokey_t* util_deserialize_pubkey(char* data, int datalen);
 
 /* Signing functions */
 int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
@@ -39,5 +42,7 @@ int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 int util_base64_encode(const unsigned char* input, size_t inlen, 
 		char* output, size_t* outlen);
 int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str);
+int util_str_to_bytes(char* str, size_t len, unsigned char** bufout,
+		size_t* outlen);
 
 #endif

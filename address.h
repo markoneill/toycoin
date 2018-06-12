@@ -16,6 +16,6 @@ typedef struct address {
 address_t* address_new(void);
 void address_free(address_t* address);
 int address_serialize(address_t* addr, unsigned char** data, int* datalen);
-address_t* address_deserialize(unsigned char* data, int datalen);
+address_t* address_deserialize(char* data, int datalen);
 
 #endif

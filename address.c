@@ -53,7 +53,7 @@ int address_serialize(address_t* addr, unsigned char** data, int* datalen) {
 	return 1;
 }
 
-address_t* address_deserialize(unsigned char* data, int datalen) {
+address_t* address_deserialize(char* data, int datalen) {
 	address_t* address;
 	cryptokey_t* keypair;
 	keypair = util_deserialize_key(data, datalen);
@@ -66,6 +66,14 @@ address_t* address_deserialize(unsigned char* data, int datalen) {
 	if (address == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate address\n");
 		util_free_key(keypair);
+		return NULL;
+	}
+
+	/* Restore digest of key */
+	if (util_hash_pubkey(keypair, address->digest, &address->digest_len) == 0) {
+		log_printf(LOG_ERROR, "Unable to hash pubkey\n");
+		util_free_key(keypair);
+		free(address);
 		return NULL;
 	}
 

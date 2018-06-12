@@ -63,7 +63,7 @@ wallet_t* wallet_load(char* filepath) {
 	FILE* wallet_file;
 	wallet_t* wallet;
 	char size_str[MAX_SERIAL_HEADER_LEN];
-	unsigned char* data;
+	char* data;
 	address_t* head_addr;
 	address_t* cur_addr;
 	address_t* prev_addr;
@@ -78,7 +78,7 @@ wallet_t* wallet_load(char* filepath) {
 	head_addr = NULL;
 	while (fgets(size_str, MAX_SERIAL_HEADER_LEN, wallet_file) != NULL) {
 		datalen = strtol(size_str, NULL, 10);
-		data = (unsigned char*)malloc(datalen);
+		data = (char*)malloc(datalen);
 		if (data == NULL) {
 			log_printf(LOG_ERROR, 
 				"Unable to allocate address data\n");

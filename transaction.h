@@ -19,7 +19,7 @@ typedef struct txinput {
 
 typedef struct txoutput {
 	int amount; /* amount of coin to send, expressed in base unit */
-	char addr_id[MAX_ID_LEN]; /* base64(sha256(recv pubkey)) */
+	char* addr_id; /* base64(sha256(recv pubkey)) */
 } txoutput_t;
 
 typedef struct txsig {
@@ -39,15 +39,15 @@ typedef struct transaction {
 
 transaction_t* transaction_new(int input_count, int output_count);
 void transaction_free(transaction_t* transaction);
-int transaction_set_input(transaction_t* txn, int index, transaction_t* src,
+int transaction_set_input(transaction_t* txn, int index, 
+		unsigned char* ref_txn_digest, unsigned int ref_digest_len,
 		int ref_index, cryptokey_t* key);
-int transaction_set_output(transaction_t* txn, int index, int amount,
-		char* addr_id);
+int transaction_set_output(transaction_t* txn, int index, int amount, char* addr_id, int addr_len);
 int transaction_finalize(transaction_t* txn);
 int transaction_hash(transaction_t* txn, unsigned char** digest_out,
 		unsigned int* digest_len_out);
 int transaction_serialize(transaction_t* txn, char** data, size_t* len,
 		 int include_sigs);
-
+transaction_t* transaction_deserialize(char* serial, size_t len);
 
 #endif
