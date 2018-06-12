@@ -31,7 +31,10 @@ static const char output_serial_format[] = "amount:%d\n"
 				"addr_id_len:%d\n"
 				"addr_id:%s\n";
 
-static const char signature_serial_format[] = "sig:%s\n";
+static const char sig_len_str[] = "sig_len:";
+static const char sig_str[] = "sig:";
+static const char signature_serial_format[] = "sig_len:%d\n"
+					"sig:%s\n";
 
 static char* parse_str(char* serial, const char* token, size_t token_len);
 static char* parse_int(char* serial, const char* token, size_t token_len, int* out);
@@ -318,6 +321,7 @@ size_t serial_write(transaction_t* txn, char* data, size_t len,
 		written = snprintf(data != NULL ? data+txn_serial_len : NULL,
 				len != 0 ? len-txn_serial_len + 1: 0,
 				signature_serial_format,
+				(int)strlen(sig_str),
 				sig_str);
 		if (written == -1) {
 			log_printf(LOG_ERROR, "Cannot serialize signature\n");
@@ -368,6 +372,11 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 
 	int amount;
 	int addr_len;
+
+	txsig_t* signatures;	
+	int sig_len;
+	size_t bin_sig_len;
+	unsigned char* sig;
 
 	transaction_t* txn;
 
@@ -437,7 +446,7 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 			transaction_free(txn);
 			return NULL;
 		}
-		serial += pubkey_len;
+		serial += pubkey_len + 1; /* +1 for newline */
 		if (transaction_set_input(txn, i, ref_txn, bin_ref_txn_len, ref_index, pubkey) == 0) {
 			log_printf(LOG_ERROR, "Failed to set input\n");
 			transaction_free(txn);
@@ -446,7 +455,7 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 		util_free_key(pubkey);
 		free(ref_txn);
 	}
-
+	
 	for (i = 0; i < num_outputs; i++) {
 		serial = parse_int(serial, amount_str, strlen(amount_str), &amount);
 		if (serial == NULL) {
@@ -454,9 +463,7 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 			transaction_free(txn);
 			return NULL;
 		}
-		printf("before %.20s\n", serial);
 		serial = parse_int(serial, addr_len_str, strlen(addr_len_str), &addr_len);
-		printf("after %.20s %d\n", serial, addr_len);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read address length\n");
 			transaction_free(txn);
@@ -473,8 +480,42 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 			transaction_free(txn);
 			return NULL;
 		}
-		serial += addr_len;
+		serial += addr_len + 1; /* +1 for newline */
+
 	}
+
+	signatures = (txsig_t*)calloc(txn->num_inputs, sizeof(txsig_t));
+	if (signatures == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate signatures\n");
+		return 0;
+	}
+	txn->signatures = signatures;
+	
+	for (i = 0; i < num_inputs; i++) {
+		serial = parse_int(serial, sig_len_str, strlen(sig_len_str), &sig_len);
+		if (serial == NULL) {
+			log_printf(LOG_ERROR, "Failed to read signature length\n");
+			transaction_free(txn);
+			return NULL;
+		}
+		serial = parse_str(serial, sig_str, strlen(sig_str));
+		if (serial == NULL) {
+			log_printf(LOG_ERROR, "Failed to read signature token\n");
+			transaction_free(txn);
+			return NULL;
+		}
+		if (util_str_to_bytes(serial, sig_len, &sig, &bin_sig_len) == 0) {
+			log_printf(LOG_ERROR, "Failed to read signature\n");
+			transaction_free(txn);
+			return NULL;
+		}
+		serial += sig_len + 1; /* +1 for newline */
+		
+		signatures[i].signature = sig;
+		signatures[i].len = bin_sig_len;
+	}
+
+	txn->is_finalized = 1;
 
 	return txn;
 }

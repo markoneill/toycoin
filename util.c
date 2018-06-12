@@ -258,41 +258,6 @@ int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen) {
 	return 1;
 }
 
-int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen) {
-	BIO* bio;
-	char* bio_data;
-	char* buffer;
-	long len;
-
-	bio = BIO_new(BIO_s_mem());
-	if (bio == NULL) {
-		log_printf(LOG_ERROR, "Unable to create bio for key\n");
-		return 0;
-	}
-	if (PEM_write_bio_PUBKEY(bio, key->ossl_key) == 0) {
-		log_printf(LOG_ERROR, "Unable to write PEM string for key\n");
-		BIO_free(bio);
-		return 0;
-	}
-	len = BIO_get_mem_data(bio, &bio_data);
-	buffer = malloc(len + 1);
-	if (buffer == NULL) {
-		log_printf(LOG_ERROR, "Unable to allocate buffer for key\n");
-		BIO_free(bio);
-		return 0;
-	}
-	memcpy(buffer, bio_data, len);
-	buffer[len] = '\0';
-
-	if (datalen != NULL) {
-		*datalen = (int)len + 1;
-	}
-
-	*data = buffer;
-	BIO_free(bio);
-	return 1;
-}
-
 cryptokey_t* util_deserialize_key(char* data, int datalen) {
 	cryptokey_t* key;
 	EVP_PKEY* ossl_key;
@@ -321,23 +286,56 @@ cryptokey_t* util_deserialize_key(char* data, int datalen) {
 	return key;
 }
 
+int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen) {
+	BIO* bio;
+	unsigned char* bio_data;
+	long len;
+
+	bio = BIO_new(BIO_s_mem());
+	if (bio == NULL) {
+		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+		return 0;
+	}
+	if (i2d_PUBKEY_bio(bio, key->ossl_key) == 0) {
+		log_printf(LOG_ERROR, "Unable to write PEM string for key\n");
+		BIO_free(bio);
+		return 0;
+	}
+	len = BIO_get_mem_data(bio, &bio_data);
+
+	if (util_bytes_to_str(bio_data, len, data) == 0) {
+		log_printf(LOG_ERROR, "Unable to convert bytes to string\n");
+		BIO_free(bio);
+		return 0;
+	}
+
+	if (datalen != NULL) {
+		*datalen = strlen(*data);
+	}
+	BIO_free(bio);
+	return 1;
+}
+
 cryptokey_t* util_deserialize_pubkey(char* data, int datalen) {
 	cryptokey_t* key;
 	EVP_PKEY* ossl_key;
-	BIO* bio;
+	unsigned char* buffer;
+	unsigned char* p;
+	size_t buflen;
 
-	bio = BIO_new_mem_buf(data, datalen);
-	if (bio == NULL) {
-		log_printf(LOG_ERROR, "Unable to create bio for key\n");
+	if (util_str_to_bytes(data, datalen, &buffer, &buflen) == 0) {
+		log_printf(LOG_ERROR, "Unable to convert string to bytes\n");
 		return NULL;
 	}
-	ossl_key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+
+	p = buffer;
+	ossl_key = d2i_PUBKEY(NULL, (const unsigned char**)&p, buflen);
 	if (ossl_key == NULL) {
-		log_printf(LOG_ERROR, "Unable to read key from bio\n");
-		BIO_free(bio);
+		log_printf(LOG_ERROR, "Unable to deseralize pubkey\n");
 		return NULL;
 	}
-	BIO_free(bio);
+
+	free(buffer);
 	key = calloc(1, sizeof(cryptokey_t));
 	if (key == NULL) {
 		log_printf(LOG_ERROR, "Failed to allocate cryptokey\n");
