@@ -65,7 +65,7 @@ START_TEST(transaction_serialize_01) {
 	/* compare outputs */
 	fail_unless(str_copy_len == str_len, "serialization lengths do not match");
 	ret = strncmp(str, str_copy, str_copy_len);
-	printf("%s\n---------------------------\n%s", str, str_copy);
+	/*printf("%s\n---------------------------\n%s", str, str_copy);*/
 	fail_unless(ret == 0, "serializations do not match");
 
 	transaction_free(prev_txn);

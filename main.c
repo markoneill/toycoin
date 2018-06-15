@@ -8,9 +8,6 @@
 #include "wallet.h"
 
 void test_chain();
-void test_transactions();
-void print_digest(unsigned char* digest, size_t len); 
-void print_serialization(block_t* block);
 
 int main(int argc, char* argv[]) {
 	/* Global setup */
@@ -20,14 +17,6 @@ int main(int argc, char* argv[]) {
 	}
 	util_init_crypto();
 
-	test_transactions();
-	test_chain();
-
-	wallet_t* wallet;
-	wallet = wallet_new();
-	wallet_add_address(wallet);
-	wallet_save(wallet, "test.wallet");
-	wallet_free(wallet);
 
 	util_deinit_crypto();
 	log_close();
@@ -38,7 +27,7 @@ int main(int argc, char* argv[]) {
 void test_chain() {
 	block_t* new_block;
 	blockchain_t* chain;
-	size_t digest_len;
+	unsigned int digest_len;
 	unsigned char* digest;
 
 	chain = blockchain_create();
@@ -51,7 +40,7 @@ void test_chain() {
 		printf("Failed to get hash of tail\n");
 		return;
 	}
-	new_block = block_new(1, digest, digest_len);
+	new_block = block_new(digest, digest_len);
 	if (new_block == NULL) {
 		printf("Failed to create new block\n");
 		return;
@@ -63,7 +52,7 @@ void test_chain() {
 		printf("Failed to get hash of tail\n");
 		return;
 	}
-	new_block = block_new(2, digest, digest_len);
+	new_block = block_new(digest, digest_len);
 	if (new_block == NULL) {
 		printf("Failed to create new block\n");
 		return;
@@ -74,20 +63,5 @@ void test_chain() {
 	blockchain_to_file(chain, stdout);
 	blockchain_free(chain);
 	return;
-}
-
-
-void print_digest(unsigned char* digest, size_t len) {
-	size_t i;
-	printf("Digest: ");
-	for (i = 0; i < len; i++) {
-		printf("%02X", digest[i]);
-	}
-	printf("\n");
-	return;
-}
-
-void test_transactions() {
-	
 }
 

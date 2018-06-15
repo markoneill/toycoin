@@ -52,9 +52,9 @@ void blockchain_free(blockchain_t* chain) {
 
 int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	unsigned char* tail_digest;
-	size_t tail_digest_len;
+	unsigned int tail_digest_len;
 	unsigned char* digest;
-	size_t digest_len;
+	unsigned int digest_len;
 	int i;
 	
 	/* No validation of genesis block should be performed */
