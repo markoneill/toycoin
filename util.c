@@ -434,3 +434,44 @@ int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 	return 1;
 }
 
+char* util_parse_int(char* serial, const char* token, size_t token_len,
+		int* out) {
+	int retval;
+	if (strncmp(serial, token, token_len) != 0) {
+		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
+		return NULL;
+	}
+	serial += token_len;
+	retval = strtol(serial, &serial, 10);
+	serial++;
+	*out = retval;
+	return serial;
+}
+
+char* util_parse_timestamp(char* serial, const char* token, size_t token_len, 
+		struct timespec* out) {
+	if (strncmp(serial, token, token_len) != 0) {
+		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
+		return NULL;
+	}
+	serial += token_len;
+	out->tv_sec = strtol(serial, &serial, 10);
+	if (*serial != '.') {
+		log_printf(LOG_ERROR, "No radix point found\n");
+		return NULL;
+	}
+	serial++;
+	out->tv_nsec = strtol(serial, &serial, 10);
+	serial++;
+	return serial;
+}
+
+char* util_parse_str(char* serial, const char* token, size_t token_len) {
+	if (strncmp(serial, token, token_len) != 0) {
+		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
+		return NULL;
+	}
+	serial += token_len;
+	return serial;
+}
+

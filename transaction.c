@@ -6,38 +6,36 @@
 
 #define TRANSACTION_VERSION	1
 
-static const char version_str[] = "version:";
-static const char inputs_str[] = "num_inputs:";
-static const char outputs_str[] = "num_outputs:";
-static const char header_serial_format[] = "version:%d\n"
-			     "num_inputs:%d\n"
-			     "num_outputs:%d\n";
+static const char version_str[] = "\tversion:";
+static const char inputs_str[] = "\tnum_inputs:";
+static const char outputs_str[] = "\tnum_outputs:";
+static const char header_serial_format[] = "\tversion:%d\n"
+			     "\tnum_inputs:%d\n"
+			     "\tnum_outputs:%d\n";
 
-static const char ref_txn_len_str[] = "ref_txn_len:";
-static const char ref_txn_str[] = "ref_txn_digest:";
-static const char ref_index_str[] = "ref_index:";
-static const char pubkey_len_str[] = "pubkey_len:";
-static const char pubkey_str[] = "pubkey:";
-static const char input_serial_format[] = "ref_txn_len:%d\n"
-				"ref_txn_digest:%s\n"
-				"ref_index:%d\n"
-				"pubkey_len:%d\n"
-				"pubkey:%s\n";
+static const char ref_txn_len_str[] = "\tref_txn_len:";
+static const char ref_txn_str[] = "\tref_txn_digest:";
+static const char ref_index_str[] = "\tref_index:";
+static const char pubkey_len_str[] = "\tpubkey_len:";
+static const char pubkey_str[] = "\tpubkey:";
+static const char input_serial_format[] = "\tref_txn_len:%d\n"
+				"\tref_txn_digest:%s\n"
+				"\tref_index:%d\n"
+				"\tpubkey_len:%d\n"
+				"\tpubkey:%s\n";
 
-static const char amount_str[] = "amount:";
-static const char addr_len_str[] = "addr_id_len:";
-static const char addr_str[] = "addr_id:";
-static const char output_serial_format[] = "amount:%d\n"
-				"addr_id_len:%d\n"
-				"addr_id:%s\n";
+static const char amount_str[] = "\tamount:";
+static const char addr_len_str[] = "\taddr_id_len:";
+static const char addr_str[] = "\taddr_id:";
+static const char output_serial_format[] = "\tamount:%d\n"
+				"\taddr_id_len:%d\n"
+				"\taddr_id:%s\n";
 
-static const char sig_len_str[] = "sig_len:";
-static const char sig_str[] = "sig:";
-static const char signature_serial_format[] = "sig_len:%d\n"
-					"sig:%s\n";
+static const char sig_len_str[] = "\tsig_len:";
+static const char sig_str[] = "\tsig:";
+static const char signature_serial_format[] = "\tsig_len:%d\n"
+					"\tsig:%s\n";
 
-static char* parse_str(char* serial, const char* token, size_t token_len);
-static char* parse_int(char* serial, const char* token, size_t token_len, int* out);
 static size_t serial_write(transaction_t* txn, char* data, size_t len,
 	 int include_sigs);
 
@@ -335,28 +333,6 @@ size_t serial_write(transaction_t* txn, char* data, size_t len,
 	return txn_serial_len;
 }
 
-char* parse_int(char* serial, const char* token, size_t token_len, int* out) {
-	int retval;
-	if (strncmp(serial, token, token_len) != 0) {
-		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
-		return NULL;
-	}
-	serial += token_len;
-	retval = strtol(serial, &serial, 10);
-	serial++;
-	*out = retval;
-	return serial;
-}
-
-char* parse_str(char* serial, const char* token, size_t token_len) {
-	if (strncmp(serial, token, token_len) != 0) {
-		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
-		return NULL;
-	}
-	serial += token_len;
-	return serial;
-}
-
 transaction_t* transaction_deserialize(char* serial, size_t len) {
 	int i;
 	int version;
@@ -380,17 +356,17 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 
 	transaction_t* txn;
 
-	serial = parse_int(serial, version_str, strlen(version_str), &version);
+	serial = util_parse_int(serial, version_str, strlen(version_str), &version);
 	if (serial == NULL) {
 		log_printf(LOG_ERROR, "Failed to read transaction version\n");
 		return NULL;
 	}
-	serial = parse_int(serial, inputs_str, strlen(inputs_str), &num_inputs);
+	serial = util_parse_int(serial, inputs_str, strlen(inputs_str), &num_inputs);
 	if (serial == NULL) {
 		log_printf(LOG_ERROR, "Failed to read transaction input number\n");
 		return NULL;
 	}
-	serial = parse_int(serial, outputs_str, strlen(outputs_str), &num_outputs);
+	serial = util_parse_int(serial, outputs_str, strlen(outputs_str), &num_outputs);
 	if (serial == NULL) {
 		log_printf(LOG_ERROR, "Failed to read transaction output number\n");
 		return NULL;
@@ -404,13 +380,13 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 
 
 	for (i = 0; i < num_inputs; i++) {
-		serial = parse_int(serial, ref_txn_len_str, strlen(ref_txn_len_str), &ref_txn_len);
+		serial = util_parse_int(serial, ref_txn_len_str, strlen(ref_txn_len_str), &ref_txn_len);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read ref transaction len\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_str(serial, ref_txn_str, strlen(ref_txn_str));
+		serial = util_parse_str(serial, ref_txn_str, strlen(ref_txn_str));
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read ref transaction token\n");
 			transaction_free(txn);
@@ -422,19 +398,19 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 			return NULL;
 		}
 		serial += ref_txn_len + 1; /* +1 for newline */
-		serial = parse_int(serial, ref_index_str, strlen(ref_index_str), &ref_index);
+		serial = util_parse_int(serial, ref_index_str, strlen(ref_index_str), &ref_index);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read ref index\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_int(serial, pubkey_len_str, strlen(pubkey_len_str), &pubkey_len);
+		serial = util_parse_int(serial, pubkey_len_str, strlen(pubkey_len_str), &pubkey_len);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read pubkey length\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_str(serial, pubkey_str, strlen(pubkey_str));
+		serial = util_parse_str(serial, pubkey_str, strlen(pubkey_str));
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read pubkey token\n");
 			transaction_free(txn);
@@ -457,19 +433,19 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 	}
 	
 	for (i = 0; i < num_outputs; i++) {
-		serial = parse_int(serial, amount_str, strlen(amount_str), &amount);
+		serial = util_parse_int(serial, amount_str, strlen(amount_str), &amount);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read amount\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_int(serial, addr_len_str, strlen(addr_len_str), &addr_len);
+		serial = util_parse_int(serial, addr_len_str, strlen(addr_len_str), &addr_len);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read address length\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_str(serial, addr_str, strlen(addr_str));
+		serial = util_parse_str(serial, addr_str, strlen(addr_str));
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read address token\n");
 			transaction_free(txn);
@@ -492,13 +468,13 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 	txn->signatures = signatures;
 	
 	for (i = 0; i < num_inputs; i++) {
-		serial = parse_int(serial, sig_len_str, strlen(sig_len_str), &sig_len);
+		serial = util_parse_int(serial, sig_len_str, strlen(sig_len_str), &sig_len);
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read signature length\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial = parse_str(serial, sig_str, strlen(sig_str));
+		serial = util_parse_str(serial, sig_str, strlen(sig_str));
 		if (serial == NULL) {
 			log_printf(LOG_ERROR, "Failed to read signature token\n");
 			transaction_free(txn);

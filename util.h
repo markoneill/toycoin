@@ -44,5 +44,9 @@ int util_base64_encode(const unsigned char* input, size_t inlen,
 int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str);
 int util_str_to_bytes(char* str, size_t len, unsigned char** bufout,
 		size_t* outlen);
+char* util_parse_str(char* serial, const char* token, size_t token_len);
+char* util_parse_int(char* serial, const char* token, size_t token_len, int* out);
+char* util_parse_timestamp(char* serial, const char* token, size_t token_len, 
+		struct timespec* out);
 
 #endif

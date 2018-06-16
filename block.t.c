@@ -57,13 +57,13 @@ START_TEST(block_create_01) {
 	block_free(new_block);
 	address_free(addr);
 	address_free(prev_addr);
-	free(digest);
 }
 END_TEST
 
 START_TEST(block_serialize_01) {
 	block_t* block;
 	block_t* new_block;
+	block_t* block_copy;
 	transaction_t* prev_txn;
 	transaction_t* txn;
 	address_t* prev_addr;
@@ -72,8 +72,11 @@ START_TEST(block_serialize_01) {
 	unsigned char* digest;
 	unsigned int digest_len;
 	int ret;
+
 	char* serialized_block;
 	size_t serial_len;
+	char* serialized_block_copy;
+	size_t serial_len_copy;
 
 	/* create dummy address */
 	prev_addr = address_new();
@@ -116,14 +119,25 @@ START_TEST(block_serialize_01) {
 	/* serialize block */
 	ret = block_serialize(new_block, &serialized_block, &serial_len);
 	fail_unless(ret == 1, "block serialize failed");
-	printf("%s\n", serialized_block);
+
+	/* deserialize block */
+	block_copy = block_deserialize(serialized_block, serial_len);
+	fail_unless(block_copy != NULL, "block deserialize failed");
+
+	/* compare */
+	ret = block_serialize(block_copy, &serialized_block_copy, &serial_len_copy);
+	fail_unless(ret == 1, "copy serialization failed");
+	fail_unless(serial_len == serial_len_copy, "serial lengths are not equal");
+	ret = strncmp(serialized_block, serialized_block_copy, serial_len);
+	fail_unless(ret == 0, "blocks do not match");
 
 	block_free(block);
 	block_free(new_block);
+	block_free(block_copy);
 	free(serialized_block);
+	free(serialized_block_copy);
 	address_free(addr);
 	address_free(prev_addr);
-	free(digest);
 }
 END_TEST
 
