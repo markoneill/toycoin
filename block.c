@@ -10,14 +10,14 @@
 #define BLOCK_VERSION	1
 #define BASE_TXN_COUNT	10
 
-static const char version_str[] = "---START BLOCK---\nversion:";
+static const char version_str[] = "version:";
 static const char time_str[] = "timestamp:";
 static const char digest_len_str[] = "prev_digest_len:";
 static const char digest_str[] = "prev_digest:";
 static const char nonce_str[] = "nonce:";
 static const char target_str[] = "target_bits:";
 static const char num_txns_str[] = "num_transactions:";
-static const char header_serial_format[] = "---START BLOCK---\nversion:%0d\n"
+static const char header_serial_format[] = "version:%0d\n"
 			     "timestamp:%ld.%.9ld\n"
 			     "prev_digest_len:%d\n"
 			     "prev_digest:%s\n"
@@ -58,6 +58,10 @@ block_t* block_new_genesis(void) {
 		return NULL;
 	}
 	block = block_new(digest, util_digestlen());
+
+	/* Genesis block needs static date */
+	block->timestamp.tv_sec = 1529210382;
+	block->timestamp.tv_nsec = 0;
 	if (block == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis block\n");
 		free(digest);
@@ -182,9 +186,8 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 		}
 		serial_len += written;
 	}
-	serial_len += 1;
 
-	serial = (char*)calloc(1, serial_len);
+	serial = (char*)calloc(1, serial_len + 1);
 	if (serial == NULL) {
 		log_printf(LOG_ERROR, "Failed to allocate memory for block\n");
 		free(digest_str);
@@ -193,7 +196,7 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 		return 0;
 	}
 	written = snprintf(serial,
-			serial_len,
+			serial_len+1,
 			header_serial_format,
 			block->version,
 			block->timestamp.tv_sec,
@@ -215,7 +218,7 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 	pos = written;
 	for (i = 0; i < block->num_transactions; i++) {
 		written = snprintf(serial+pos,
-			serial_len-pos,
+			serial_len+1-pos,
 			body_serial_format,
 			(int)serialized_txn_lens[i],
 			serialized_txns[i]);

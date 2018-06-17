@@ -14,7 +14,7 @@ blockchain_t* blockchain_create();
 void blockchain_free(blockchain_t* chain);
 int blockchain_add_block(blockchain_t* chain, block_t* block);
 
-void blockchain_to_file(blockchain_t* chain, FILE* fd);
-blockchain_t* blockchain_from_file(FILE* fd);
+int blockchain_save(blockchain_t* chain, char* filepath);
+blockchain_t* blockchain_load(char* filepath);
 
 #endif
