@@ -7,10 +7,6 @@
 
 #include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
 
-#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
-#define MAX_DIGEST_LEN	EVP_MAX_MD_SIZE
-#define MAX_ID_LEN	ROUND_UP((MAX_DIGEST_LEN / 3) * 4, 4)
-
 typedef struct cryptokey {
 	EVP_PKEY* ossl_key;
 	int references;
@@ -25,9 +21,9 @@ int util_digestlen(void);
 cryptokey_t* util_generate_key(int bits);
 void util_free_key(cryptokey_t* key);
 cryptokey_t* util_copy_key(cryptokey_t* key);
-int util_hash(unsigned char* data, size_t datalen, unsigned char* digest, 
+int util_hash(unsigned char* data, size_t datalen, unsigned char** digest, 
 		unsigned int* digestlen);
-int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
+int util_hash_pubkey(cryptokey_t* key, unsigned char** digest,
 		unsigned int* digestlen);
 int util_serialize_key(cryptokey_t* key, unsigned char** data, int* datalen);
 int util_serialize_pubkey(cryptokey_t* key, char** data, int* datalen);
@@ -40,7 +36,7 @@ int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 
 /* General functions */
 int util_base64_encode(const unsigned char* input, size_t inlen, 
-		char* output, size_t* outlen);
+		char** output, size_t* outlen);
 int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str);
 int util_str_to_bytes(char* str, size_t len, unsigned char** bufout,
 		size_t* outlen);

@@ -508,13 +508,7 @@ int transaction_hash(transaction_t* txn, unsigned char** digest_out, unsigned in
 
 	//log_printf(LOG_DEBUG, "Transaction serial:\n%s\n", serialized_txn);
 
-	digest = (unsigned char*)malloc(util_digestlen());
-	if (digest == NULL) {
-		log_printf(LOG_ERROR, "Unable to allocate digest\n");
-		return 0;
-	}
-
-	if (util_hash((unsigned char*)serialized_txn, serial_len, digest, &digest_len) == 0) {
+	if (util_hash((unsigned char*)serialized_txn, serial_len, &digest, &digest_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash transaction\n");
 		return 0;
 	}

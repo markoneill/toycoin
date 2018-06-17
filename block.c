@@ -50,14 +50,17 @@ block_t* block_new(unsigned char* prev_digest, size_t digest_len) {
 block_t* block_new_genesis(void) {
 	block_t* block;
 	unsigned char* digest;
+	int digest_len;
+
+	digest_len = util_digestlen();
 
 	/* Genesis block has zeroes for its hash */
-	digest = (unsigned char*)calloc(1, util_digestlen());
+	digest = (unsigned char*)calloc(1, digest_len);
 	if (digest == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
 		return NULL;
 	}
-	block = block_new(digest, util_digestlen());
+	block = block_new(digest, digest_len);
 
 	/* Genesis block needs static date */
 	block->timestamp.tv_sec = 1529210382;
@@ -93,16 +96,8 @@ int block_hash(block_t* block, unsigned char** digest, unsigned int* digest_len)
 		return 0;
 	}
 
-	//log_printf(LOG_DEBUG, "Block serialization:\n%s\n", serialized_block);
-
-	digest_data = (unsigned char*)malloc(util_digestlen());
-	if (digest_data == NULL) {
-		log_printf(LOG_ERROR, "Unable to allocate digest\n");
-		return 0;
-	}
-
 	if (util_hash((unsigned char*)serialized_block, serial_len, 
-			digest_data, &digest_datalen) == 0) {
+			&digest_data, &digest_datalen) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash block\n");
 		return 0;
 	}

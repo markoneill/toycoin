@@ -25,8 +25,9 @@ int util_digestlen(void) {
 	return EVP_MD_size(hash_alg);
 }
 
-int util_hash(unsigned char* data, size_t datalen, unsigned char* digest, 
+int util_hash(unsigned char* data, size_t datalen, unsigned char** digest, 
 		unsigned int* digestlen) {
+	unsigned char* output;
 	EVP_MD_CTX* md_ctx;
 	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	md_ctx = EVP_MD_CTX_new();
@@ -34,18 +35,29 @@ int util_hash(unsigned char* data, size_t datalen, unsigned char* digest,
 	md_ctx = EVP_MD_CTX_create();
 	#endif
 
+	output = (unsigned char*)malloc(util_digestlen());
+	if (output == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate digest\n");
+		return 0;
+	}
+
 	if (EVP_DigestInit_ex(md_ctx, hash_alg, NULL) == 0) {
-		log_printf(LOG_ERROR, "Failed to init digest\n");		
+		log_printf(LOG_ERROR, "Failed to init digest\n");
+		free(output);
 		return 0;
 	}
 	if (EVP_DigestUpdate(md_ctx, data, datalen) == 0) {
 		log_printf(LOG_ERROR, "Failed to update digest\n");
+		free(output);
 		return 0;
 	}
-	if (EVP_DigestFinal_ex(md_ctx, digest, digestlen) == 0) {
+	if (EVP_DigestFinal_ex(md_ctx, output, digestlen) == 0) {
 		log_printf(LOG_ERROR, "Failed to finalize digest\n");
+		free(output);
 		return 0;
 	}
+
+	*digest = output;
 
 	#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX_free(md_ctx);
@@ -174,7 +186,7 @@ cryptokey_t* util_copy_key(cryptokey_t* key) {
 	return copy;
 }
 
-int util_hash_pubkey(cryptokey_t* key, unsigned char* digest,
+int util_hash_pubkey(cryptokey_t* key, unsigned char** digest,
 		unsigned int* digestlen) {
 	EVP_PKEY* keypair;
 	unsigned char* encoded_pubkey;
@@ -348,10 +360,11 @@ cryptokey_t* util_deserialize_pubkey(char* data, int datalen) {
 }
 
 int util_base64_encode(const unsigned char* input, size_t inlen, 
-		char* output, size_t* outlen) {
+		char** output, size_t* outlen) {
 	BIO *bio;
 	BIO *bio_b64;
 	char* buffer_ptr;
+	char* encoding;
 	int written;
 
 	bio_b64 = BIO_new(BIO_f_base64());
@@ -369,8 +382,14 @@ int util_base64_encode(const unsigned char* input, size_t inlen,
 	BIO_flush(bio);
 
 	written = BIO_get_mem_data(bio, &buffer_ptr);
-	memcpy(output, buffer_ptr, written);
-	output[written] = '\0';
+	encoding = (char*)malloc(written + 1);
+	if (encoding == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate encoding\n");
+		BIO_free_all(bio);
+	}
+	memcpy(encoding, buffer_ptr, written);
+	encoding[written] = '\0';
+	*output = encoding;
 	BIO_free_all(bio);
 	if (outlen != NULL) {
 		*outlen = written;

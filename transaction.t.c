@@ -17,7 +17,8 @@ START_TEST(transaction_serialize_01) {
 	transaction_t* txn_copy;
 	address_t* prev_addr;
 	address_t* addr;
-	char addr_str[MAX_ID_LEN];
+	char* addr_id;
+	char* prev_addr_id;
 	unsigned char* digest;
 	unsigned int digest_len;
 	char* str;
@@ -28,12 +29,13 @@ START_TEST(transaction_serialize_01) {
 
 	/* create dummy address */
 	prev_addr = address_new();
-	util_base64_encode(prev_addr->digest, prev_addr->digest_len, addr_str, NULL);
+	prev_addr_id = address_get_id(prev_addr);
+	fail_unless(prev_addr_id != NULL, "prev addr get id failed");
 
 	/* create dummy transaction */
 	prev_txn = transaction_new(0, 1);
 	fail_unless(prev_txn != NULL, "prev transaction create failed");
-	ret = transaction_set_output(prev_txn, 0, 25, addr_str, strlen(addr_str));
+	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id, strlen(prev_addr_id));
 	fail_unless(ret == 1, "prev transaction set output failed");
 	ret = transaction_finalize(prev_txn);
 	fail_unless(ret == 1, "prev transaction finalize failed");
@@ -46,8 +48,9 @@ START_TEST(transaction_serialize_01) {
 	fail_unless(ret == 1, "hashing previous transaction failed");
 	ret = transaction_set_input(txn, 0, digest, digest_len, 0, prev_addr->keypair);
 	fail_unless(ret == 1, "new transaction set input failed");
-	util_base64_encode(addr->digest, addr->digest_len, addr_str, NULL);
-	ret = transaction_set_output(txn, 0, 25, addr_str, strlen(addr_str));
+	addr_id = address_get_id(addr);
+	fail_unless(addr_id != NULL, "addr get id failed");
+	ret = transaction_set_output(txn, 0, 25, addr_id, strlen(addr_id));
 	fail_unless(ret == 1, "new transaction set output failed");
 	ret = transaction_finalize(txn);
 	fail_unless(ret == 1, "new transaction finalize failed");
@@ -76,6 +79,8 @@ START_TEST(transaction_serialize_01) {
 	free(digest);
 	free(str);
 	free(str_copy);
+	free(addr_id);
+	free(prev_addr_id);
 }
 END_TEST
 

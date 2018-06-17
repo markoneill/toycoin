@@ -6,6 +6,7 @@
 #include "transaction.h"
 #include "coin.h"
 #include "log.h"
+#include "util.h"
 
 address_t* address_new(void) {
 	cryptokey_t* keypair;
@@ -22,7 +23,7 @@ address_t* address_new(void) {
 		return NULL;
 	}
 	
-	if (util_hash_pubkey(keypair, address->digest, &address->digest_len) == 0) {
+	if (util_hash_pubkey(keypair, &address->digest, &address->digest_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash pubkey\n");
 		util_free_key(keypair);
 		free(address);
@@ -42,8 +43,21 @@ void address_free(address_t* address) {
 	address->keypair = NULL;
 	address->coin = NULL;
 	address->next = NULL;
+	free(address->digest);
+	address->digest = NULL;
 	free(address);
 	return;
+}
+
+char* address_get_id(address_t* address) {
+	char* id;
+	int ret;
+	ret = util_base64_encode(address->digest, address->digest_len, &id, NULL);
+	if (ret == 0) {
+		log_printf(LOG_ERROR, "Failed get address id\n");
+		return NULL;
+	}
+	return id;
 }
 
 int address_serialize(address_t* addr, unsigned char** data, int* datalen) {
@@ -70,7 +84,7 @@ address_t* address_deserialize(char* data, int datalen) {
 	}
 
 	/* Restore digest of key */
-	if (util_hash_pubkey(keypair, address->digest, &address->digest_len) == 0) {
+	if (util_hash_pubkey(keypair, &address->digest, &address->digest_len) == 0) {
 		log_printf(LOG_ERROR, "Unable to hash pubkey\n");
 		util_free_key(keypair);
 		free(address);

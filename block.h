@@ -7,7 +7,6 @@
  */
 
 #include <time.h> /* for timespec */
-#include "util.h"
 #include "transaction.h"
 
 typedef struct block {

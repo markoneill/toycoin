@@ -4,11 +4,12 @@
 START_TEST(util_base64_01) {
 	const char to_encode[] = "base64test";
 	char encoded[] = "YmFzZTY0dGVzdA==";
-	char encoded_test[MAX_ID_LEN];
+	char* encoded_test;
 	size_t len;
 	util_base64_encode((unsigned char*)to_encode, strlen(to_encode),
-		 encoded_test, &len);
+		 &encoded_test, &len);
 	fail_unless(strncmp(encoded, encoded_test, len) == 0, "base64 error");
+	free(encoded_test);
 }
 END_TEST
 

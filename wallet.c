@@ -4,6 +4,7 @@
 #include <errno.h> /* for errno */
 
 #include "wallet.h"
+#include "blockchain.h"
 #include "log.h"
 
 #define MAX_SERIAL_HEADER_LEN	32
@@ -164,5 +165,40 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 	
 	fclose(wallet_file);
 	return 1;
+}
+
+int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
+	address_t* cur_addr;
+	cur_addr = wallet->addresses;
+	/*int id_count;*/
+
+	while (cur_addr != NULL) {
+		
+		cur_addr = cur_addr->next;
+	}
+	return 1;
+}
+
+int wallet_del_address(wallet_t* wallet, address_t* addr) {
+	address_t* cur_addr;
+
+	cur_addr = wallet->addresses;
+
+	if (cur_addr == addr) {
+		wallet->addresses = addr->next;
+		address_free(addr);
+		return 1;
+	}
+
+	while (cur_addr->next != NULL) {
+		if (cur_addr->next == addr) {
+			cur_addr->next = addr->next;
+			address_free(addr);
+			return 1;
+		}
+		cur_addr = cur_addr->next;
+	}
+
+	return 0;
 }
 

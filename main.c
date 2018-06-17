@@ -1,11 +1,8 @@
-#include <stdlib.h>
+#include <stdlib.h> /* exit macros */
 
 #include "log.h"
+#include "node.h"
 #include "util.h"
-#include "transaction.h"
-#include "block.h"
-#include "blockchain.h"
-#include "wallet.h"
 
 int main(int argc, char* argv[]) {
 	/* Global setup */
@@ -15,6 +12,7 @@ int main(int argc, char* argv[]) {
 	}
 	util_init_crypto();
 
+	node_start();
 
 	util_deinit_crypto();
 	log_close();
