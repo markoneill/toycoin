@@ -3,6 +3,9 @@
 
 #include "util.h"
 
+typedef struct blockchain blockchain_t;
+typedef struct coin coin_t;
+
 /* 
  * Basic transaction structure influenced by
  * https://en.bitcoin.it/wiki/Transaction
@@ -49,5 +52,13 @@ int transaction_hash(transaction_t* txn, unsigned char** digest_out,
 int transaction_serialize(transaction_t* txn, char** data, size_t* len,
 		 int include_sigs);
 transaction_t* transaction_deserialize(char* serial, size_t len);
+coin_t* transaction_get_coin(transaction_t* txn, char* address_id);
+
+/* Returns 1 if the given transaction refernces the given output (previous
+ * transaction and index. Used to detect double spending */
+int transaction_references(transaction_t* txn, unsigned char* ref_txn_digest,
+		unsigned int ref_digestlen, int index);
+
+int transaction_is_valid(transaction_t* txn, blockchain_t* chain);
 
 #endif

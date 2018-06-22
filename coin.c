@@ -1,7 +1,7 @@
 #include "coin.h"
 #include "log.h"
 
-coin_t* coin_new(transaction_t* transaction, int index) {
+coin_t* coin_new(transaction_t* transaction, int index, int amount) {
 	coin_t* coin;
 	coin = (coin_t*)calloc(1, sizeof(coin_t));
 	if (coin == NULL) {
@@ -10,6 +10,8 @@ coin_t* coin_new(transaction_t* transaction, int index) {
 	}
 	coin->transaction = transaction;
 	coin->index = index;
+	coin->amount = amount;
+	coin->next = NULL;
 	return coin;
 }
 
@@ -19,3 +21,31 @@ void coin_free(coin_t* coin) {
 	return;
 }
 
+coin_t* coin_add_coins(coin_t* prev, coin_t* next) {
+	coin_t* head;
+	if (prev == NULL) {
+		return next;
+	}
+
+	if (next == NULL) {
+		return prev;
+	}
+
+	head = prev;
+	while (prev->next != NULL) {
+		prev = prev->next;
+	}
+	prev->next = next;
+	return head;
+}
+
+int coin_sum_coins(coin_t* coin) {
+	int value;
+
+	value = 0;
+	while (coin != NULL) {
+		value += coin->amount;
+		coin = coin->next;
+	}
+	return value;
+}

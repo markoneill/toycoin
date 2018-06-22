@@ -33,6 +33,8 @@ cryptokey_t* util_deserialize_pubkey(char* data, int datalen);
 /* Signing functions */
 int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 		unsigned char** sig_out, size_t* siglen_out);
+int util_verify(cryptokey_t* key, unsigned char* sig, size_t siglen,
+		unsigned char* digest, size_t digestlen);
 
 /* General functions */
 int util_base64_encode(const unsigned char* input, size_t inlen, 

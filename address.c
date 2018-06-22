@@ -30,18 +30,25 @@ address_t* address_new(void) {
 		return NULL;
 	}
 	address->keypair = keypair;
-	address->coin = NULL;
+	address->coins = NULL;
 	address->next = NULL;
 	return address;
 }
 
 void address_free(address_t* address) {
+	coin_t* coin;
+	coin_t* tmp;
 	util_free_key(address->keypair);
-	if (address->coin != NULL) {
-		coin_free(address->coin);
+	if (address->coins != NULL) {
+		coin = address->coins;
+		while (coin != NULL) {
+			tmp = coin;
+			coin = coin->next;
+			coin_free(tmp);
+		}
 	}
 	address->keypair = NULL;
-	address->coin = NULL;
+	address->coins = NULL;
 	address->next = NULL;
 	free(address->digest);
 	address->digest = NULL;
@@ -92,7 +99,7 @@ address_t* address_deserialize(char* data, int datalen) {
 	}
 
 	address->keypair = keypair;
-	address->coin = NULL;
+	address->coins = NULL;
 	address->next = NULL;
 	return address;
 }

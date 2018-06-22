@@ -6,8 +6,11 @@
 #include "wallet.h"
 #include "blockchain.h"
 #include "log.h"
+#include "coin.h"
 
 #define MAX_SERIAL_HEADER_LEN	32
+
+/*static int wallet_get_address_count(wallet_t* wallet);*/
 
 wallet_t* wallet_new(void) {
 	wallet_t* wallet;
@@ -167,16 +170,39 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 	return 1;
 }
 
-int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
-	address_t* cur_addr;
-	cur_addr = wallet->addresses;
-	/*int id_count;*/
 
+/*int wallet_get_address_count(wallet_t* wallet) {
+	address_t* cur_addr;
+	int count;
+
+	cur_addr = wallet->addresses;
+	count = 0;
 	while (cur_addr != NULL) {
-		
+		count++;
 		cur_addr = cur_addr->next;
 	}
-	return 1;
+	return count;
+}*/
+
+int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
+	address_t* cur_addr;
+	char* address_id;
+	coin_t* coins;
+	int total;
+
+	total = 0;
+	cur_addr = wallet->addresses;
+	while (cur_addr != NULL) {
+		address_id = address_get_id(cur_addr);
+
+		coins = blockchain_get_coins(chain, address_id);
+		total += coin_sum_coins(coins);
+		cur_addr->coins = coins;
+
+		cur_addr = cur_addr->next;
+		free(address_id);
+	}
+	return total;
 }
 
 int wallet_del_address(wallet_t* wallet, address_t* addr) {

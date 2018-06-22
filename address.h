@@ -9,7 +9,7 @@ typedef struct address {
 	unsigned char* digest; /* digest of pubkey */
 	unsigned int digest_len;
 	cryptokey_t* keypair;
-	coin_t* coin; /* coin associated with address, if any */
+	coin_t* coins; /* coins associated with address, if any */
 	struct address* next; /* pointer to next address in wallet */
 } address_t;
 

@@ -8,6 +8,7 @@
 
 #include <time.h> /* for timespec */
 #include "transaction.h"
+#include "coin.h"
 
 typedef struct block {
 	/* Core members */
@@ -34,6 +35,11 @@ int block_hash(block_t* block, unsigned char** digest, unsigned int* digest_len)
 int block_serialize(block_t* block, char** data, size_t* len);
 block_t* block_deserialize(char* serial, size_t len);
 int block_add_transaction(block_t* block, transaction_t* txn);
+transaction_t* block_get_transaction_by_digest(block_t* block,
+		unsigned char* digest, unsigned int digestlen);
+int block_reference_exists(block_t* chain, unsigned char* ref_txn_digest,
+		unsigned int ref_digestlen, int index);
+coin_t* block_get_coins(block_t* block, char* address_id);
 int block_set_nonce(block_t* block, int nonce);
 
 #endif

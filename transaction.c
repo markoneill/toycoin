@@ -1,6 +1,7 @@
 #include <stdlib.h> /* for calloc */
 #include <string.h> /* for strerror */
 #include "transaction.h"
+#include "blockchain.h"
 #include "coin.h"
 #include "log.h"
 
@@ -522,4 +523,140 @@ int transaction_hash(transaction_t* txn, unsigned char** digest_out, unsigned in
 	return 1;
 }
 
+coin_t* transaction_get_coin(transaction_t* txn, char* address_id) {
+	int i;
+	coin_t* coin;
+	for (i = 0; i < txn->num_outputs; i++) {
+		if (strcmp(txn->outputs[i].addr_id, address_id) == 0) {
+			coin = coin_new(txn, i, txn->outputs[i].amount);
+			if (coin == NULL) {
+				log_printf(LOG_ERROR, "Unable make coin\n");
+				return NULL;
+			}
+			return coin;
+		}
+	}
+	return NULL;
+}
+
+int transaction_references(transaction_t* txn, unsigned char* ref_txn_digest,
+		unsigned int ref_digestlen, int index) {
+	int i;
+	for (i = 0; i < txn->num_inputs; i++) {
+		if (memcmp(txn->inputs[i].ref_txn_digest,
+				ref_txn_digest, ref_digestlen) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
+	int i;
+	int is_valid;
+	int input_amount;
+	int output_amount;
+	transaction_t* ref_txn;
+	int ref_idx;
+	txoutput_t* ref_output;
+
+	unsigned char* digest;
+	unsigned int digestlen;
+	char* b64_encoding;
+
+	unsigned char* txn_digest;
+	unsigned int txn_digestlen;
+
+	is_valid = 0;
+	input_amount = 0;
+	output_amount = 0;
+
+	/* hash the transaction for verification later */
+	if (transaction_hash(txn, &txn_digest, &txn_digestlen) != 1) {
+		return 0;
+	}
+
+	/* calculate money spent */
+	for (i = 0; i < txn->num_outputs; i++) {
+		output_amount += txn->outputs[i].amount;
+	}
+
+	/* verify the money is owned */
+	for (i = 0; i < txn->num_inputs; i++) {
+		ref_txn = blockchain_get_transaction_by_digest(chain,
+			txn->inputs[i].ref_txn_digest, 
+			txn->inputs[i].ref_digest_len);
+		if (ref_txn == NULL) {
+			/* referenced transaction doesn't exist */
+			free(txn_digest);
+			return 0;
+		}
+
+		ref_idx = txn->inputs[i].ref_index;
+		if (ref_idx < 0 || ref_idx > ref_txn->num_outputs-1) {
+			/* referenced output doesn't exist */
+			free(txn_digest);
+			return 0;
+		}
+
+		ref_output = &ref_txn->outputs[ref_idx];
+		if (util_hash_pubkey(txn->inputs[i].owner_key,
+			 &digest, &digestlen) != 1) {
+			/* unable to hash key */
+			free(txn_digest);
+			return 0;
+		}
+
+		if (util_base64_encode(digest, digestlen, 
+				&b64_encoding, NULL) != 1) {
+			/* unable to base64 encode the key digest */
+			free(txn_digest);
+			free(digest);
+			return 0;
+		}
+		
+		if (strcmp(b64_encoding, ref_output->addr_id) == 0) {
+			/* the specified address does not own the
+			 * referenced money */
+			free(b64_encoding);
+			free(txn_digest);
+			free(digest);
+			return 0;
+		}
+
+		/* verify they own the key they claim to */
+		if (util_verify(txn->inputs[i].owner_key,
+				txn->signatures[i].signature,
+				txn->signatures[i].len,
+				txn_digest,
+				txn_digestlen) != 1) {
+			free(b64_encoding);
+			free(txn_digest);
+			free(digest);
+			/* they don't */
+			return 0;
+			
+		}
+		free(b64_encoding);
+		free(digest);
+
+		if (blockchain_reference_exists(chain,
+					txn->inputs[i].ref_txn_digest,
+					txn->inputs[i].ref_digest_len,
+					txn->inputs[i].ref_index) == 1) {
+			/* attempted double spend */
+			return 0;
+		}
+
+		input_amount += ref_output->amount;
+	}
+	free(txn_digest);
+
+	/* no spending more than you have! */
+	if (output_amount > input_amount) {
+		return 0;
+	}
+
+	return is_valid;
+}
 

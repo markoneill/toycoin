@@ -453,6 +453,43 @@ int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 	return 1;
 }
 
+int util_verify(cryptokey_t* key, unsigned char* sig, size_t siglen,
+				unsigned char* digest, size_t digestlen) {
+	EVP_PKEY_CTX* ctx;
+
+	ctx = EVP_PKEY_CTX_new(key->ossl_key, NULL);
+	if (ctx == NULL) {
+		log_printf(LOG_ERROR, "Unable to initialize pubkey context\n");
+		return 0;
+	}
+
+	if (EVP_PKEY_verify_init(ctx) <= 0) {
+		log_printf(LOG_ERROR, "Unable to init verify\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0) {
+		log_printf(LOG_ERROR, "Unable to set padding for verify\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_CTX_set_signature_md(ctx, hash_alg) <= 0) {
+		log_printf(LOG_ERROR, "Unable to set hash alg for verify\n");
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	if (EVP_PKEY_verify(ctx, sig, siglen, digest, digestlen) != 0) {
+		EVP_PKEY_CTX_free(ctx);
+		return 0;
+	}
+
+	EVP_PKEY_CTX_free(ctx);
+	return 1;
+}
+
 char* util_parse_int(char* serial, const char* token, size_t token_len,
 		int* out) {
 	int retval;

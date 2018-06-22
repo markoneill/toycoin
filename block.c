@@ -363,6 +363,58 @@ int block_add_transaction(block_t* block, transaction_t* txn) {
 	return 1;
 }
 
+transaction_t* block_get_transaction_by_digest(block_t* block,
+		unsigned char* digest, unsigned int digestlen) {
+	transaction_t* txn;
+	unsigned char* src_digest;
+	unsigned int src_digestlen;
+	int i;
+	for (i = 0; i < block->num_transactions; i++) {
+		txn = block->transactions[i];
+		if (transaction_hash(txn, &src_digest, &src_digestlen) != 1) {
+			log_printf(LOG_ERROR, "Unable to hash transaction\n");
+			return NULL;
+		}
+
+		if (memcmp(digest, src_digest, digestlen) == 0) {
+			free(src_digest);
+			return txn;
+		}
+
+		free(src_digest);
+	}
+	return NULL;
+}
+
+int block_reference_exists(block_t* block, unsigned char* ref_txn_digest,
+		unsigned int ref_digestlen, int index) {
+	transaction_t* txn;
+	int i;
+	for (i = 0; i < block->num_transactions; i++) {
+		txn = block->transactions[i];
+		if (transaction_references(txn, ref_txn_digest, 
+			ref_digestlen, index) == 1) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+coin_t* block_get_coins(block_t* block, char* address_id) {
+	int i;
+	transaction_t* txn;
+	coin_t* coins;
+	coin_t* coin;
+	int num_txns = block->num_transactions;
+
+	for (i = 0; i < num_txns; i++) {
+		txn = block->transactions[i];
+		coin = transaction_get_coin(txn, address_id);
+		coins = coin_add_coins(coins, coin);
+	}
+	return coins;
+}
+
 int block_set_nonce(block_t* block, int nonce) {
 	block->nonce = nonce;
 	return 1;

@@ -3,7 +3,9 @@
 #include <string.h> /* for memcmp */
 
 #include "blockchain.h"
+#include "transaction.h"
 #include "block.h"
+#include "coin.h"
 #include "log.h"
 #include "util.h"
 
@@ -106,6 +108,55 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	free(tail_digest);
 	free(digest);
 	return 1;
+}
+
+
+coin_t* blockchain_get_coins(blockchain_t* chain, char* address_id) {
+	block_t* cur_block;
+	coin_t* coins_head;
+	coin_t* coins;
+
+	coins_head = NULL;
+	cur_block = chain->head;
+	while (cur_block != NULL) {
+		coins = block_get_coins(cur_block, address_id);
+		coins_head = coin_add_coins(coins_head, coins);
+		cur_block = cur_block->next;
+	}
+	return coins_head;
+}
+
+transaction_t* blockchain_get_transaction_by_digest(blockchain_t* chain,
+		unsigned char* digest, unsigned int digestlen) {
+	block_t* cur_block;
+	transaction_t* txn;
+
+	cur_block = chain->head;
+	while (cur_block != NULL) {
+		txn = block_get_transaction_by_digest(cur_block, 
+			digest, digestlen);
+		if (txn != NULL) {
+			return txn;
+		}
+		cur_block = cur_block->next;
+	}
+	return NULL;
+}
+
+int blockchain_reference_exists(blockchain_t* chain,
+		unsigned char* ref_txn_digest, unsigned int ref_digestlen,
+		int index) {
+	block_t* cur_block;
+
+	cur_block = chain->head;
+	while (cur_block != NULL) {
+		if (block_reference_exists(cur_block, ref_txn_digest,
+			ref_digestlen, index) == 1) {
+			return 1;
+		}
+		cur_block = cur_block->next;
+	}
+	return 0;
 }
 
 int blockchain_save(blockchain_t* chain, char* filepath) {
