@@ -14,6 +14,8 @@ typedef struct blockchain {
 blockchain_t* blockchain_create();
 void blockchain_free(blockchain_t* chain);
 int blockchain_add_block(blockchain_t* chain, block_t* block);
+int blockchain_get_length(blockchain_t* chain);
+block_t* blockchain_get_last_block(blockchain_t* chain);
 
 /* Returns a list of coins owned by the given address */
 coin_t* blockchain_get_coins(blockchain_t* chain, char* address_id);

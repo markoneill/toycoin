@@ -58,12 +58,17 @@ void blockchain_free(blockchain_t* chain) {
 	return;
 }
 
+int blockchain_get_length(blockchain_t* chain) {
+	return chain->length;
+}
+
+block_t* blockchain_get_last_block(blockchain_t* chain) {
+	return chain->tail;
+}
+
 int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	unsigned char* tail_digest;
 	unsigned int tail_digest_len;
-	unsigned char* digest;
-	unsigned int digest_len;
-	int i;
 	
 	/* No validation of genesis block should be performed */
 	if (chain->head == NULL) {
@@ -85,20 +90,6 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 		return 0;
 	}
 
-	/* Make sure the block is valid */
-	if (block_hash(block, &digest, &digest_len) == 0) {
-		log_printf(LOG_ERROR, "Unable to hash block to add\n");
-		return 0;
-	}
-	/* XXX validate num_zeroes based on timestamp first */
-	for (i = 0; i < block->target_bits; i++) {
-		if (digest[i] != 0) {
-			log_printf(LOG_ERROR,
-				"Block does not have sufficient leading zeroes\n");
-			return 0;
-		}
-	}
-
 	chain->tail->next = block;
 	block->prev = chain->tail;
 	block->next = NULL;
@@ -106,7 +97,6 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	chain->length++;
 
 	free(tail_digest);
-	free(digest);
 	return 1;
 }
 

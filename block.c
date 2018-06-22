@@ -86,6 +86,24 @@ void block_free(block_t* block) {
 	return;
 }
 
+int block_is_valid(block_t* block) {
+	int i;
+	unsigned char* digest;
+	unsigned int digestlen;
+
+	if (block_hash(block, &digest, &digestlen) == 0) {
+		log_printf(LOG_ERROR, "Unable to hash block to add\n");
+		return 0;
+	}
+
+	for (i = 0; i < block->target_bits; i++) {
+		/* XXX coming soon */
+	}
+
+	free(digest);
+	return 1;
+}
+
 int block_hash(block_t* block, unsigned char** digest, unsigned int* digest_len) {
 	char* serialized_block;
 	size_t serial_len;

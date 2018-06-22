@@ -31,6 +31,7 @@ typedef struct block {
 block_t* block_new_genesis(void);
 block_t* block_new(unsigned char* prev_digest, size_t digest_len);
 void block_free(block_t* block);
+int block_is_valid(block_t* block);
 int block_hash(block_t* block, unsigned char** digest, unsigned int* digest_len);
 int block_serialize(block_t* block, char** data, size_t* len);
 block_t* block_deserialize(char* serial, size_t len);
