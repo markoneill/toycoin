@@ -45,7 +45,7 @@ void transaction_free(transaction_t* transaction);
 int transaction_set_input(transaction_t* txn, int index, 
 		unsigned char* ref_txn_digest, unsigned int ref_digest_len,
 		int ref_index, cryptokey_t* key);
-int transaction_set_output(transaction_t* txn, int index, int amount, char* addr_id, int addr_len);
+int transaction_set_output(transaction_t* txn, int index, int amount, char* addr_id);
 int transaction_finalize(transaction_t* txn);
 int transaction_hash(transaction_t* txn, unsigned char** digest_out,
 		unsigned int* digest_len_out);
@@ -60,5 +60,6 @@ int transaction_references(transaction_t* txn, unsigned char* ref_txn_digest,
 		unsigned int ref_digestlen, int index);
 
 int transaction_is_valid(transaction_t* txn, blockchain_t* chain);
+int transaction_is_valid_coinbase(transaction_t* txn, blockchain_t* chain);
 
 #endif

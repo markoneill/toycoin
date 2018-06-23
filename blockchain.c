@@ -13,7 +13,7 @@ static const char begin_str[] = "-----BEGIN BLOCK-----\n";
 static const char block_len_str[] = "block_len:";
 static const char end_str[] = "------END BLOCK------\n";
 
-blockchain_t* blockchain_create() {
+blockchain_t* blockchain_new(void) {
 	blockchain_t* chain;
 	block_t* genesis_block;
 	chain = (blockchain_t*)calloc(1, sizeof(blockchain_t));
@@ -64,6 +64,11 @@ int blockchain_get_length(blockchain_t* chain) {
 
 block_t* blockchain_get_last_block(blockchain_t* chain) {
 	return chain->tail;
+}
+
+int blockchain_get_current_payout(blockchain_t* chain) {
+	/* XXX calculate this based on chain length */
+	return 1000;
 }
 
 int blockchain_add_block(blockchain_t* chain, block_t* block) {
@@ -192,7 +197,7 @@ blockchain_t* blockchain_load(char* filepath) {
 	blockchain_t* chain;
 	block_t* block;
 	
-	chain = blockchain_create();
+	chain = blockchain_new();
 	if (chain == NULL) {
 		log_printf(LOG_ERROR, "Unable to init chain\n");
 		return NULL;

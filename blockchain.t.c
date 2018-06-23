@@ -14,7 +14,7 @@ START_TEST(blockchain_serialize_01) {
 	int ret;
 
 	/* create sample chain */
-	chain = blockchain_create();
+	chain = blockchain_new();
 	fail_unless(chain != NULL, "chain create failed");
 	ret = block_hash(chain->tail, &digest, &digest_len);
 	fail_unless(ret == 1, "block hash failed");

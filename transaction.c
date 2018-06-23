@@ -147,8 +147,9 @@ int transaction_set_input(transaction_t* txn, int index,
 	return 1;
 }
 
-int transaction_set_output(transaction_t* txn, int index, int amount, char* addr_id, int addr_len) {
+int transaction_set_output(transaction_t* txn, int index, int amount, char* addr_id) {
 	char* addr_copy;
+	int addr_len = strlen(addr_id);
 	if (index < 0 || index >= txn->num_outputs) {
 		log_printf(LOG_ERROR, "Invalid output index\n");
 		return 0;
@@ -176,6 +177,7 @@ int transaction_finalize(transaction_t* txn) {
 
 	/* coinbase transactions have no need to be finalized */
 	if (txn->num_inputs == 0) {
+		txn->is_finalized = 1;
 		return 1;
 	}
 
@@ -452,13 +454,21 @@ transaction_t* transaction_deserialize(char* serial, size_t len) {
 			transaction_free(txn);
 			return NULL;
 		}
-		if (transaction_set_output(txn, i, amount, serial, addr_len) == 0) {
+		serial[addr_len] = '\0'; /* convert to null terminated string */
+		if (transaction_set_output(txn, i, amount, serial) == 0) {
 			log_printf(LOG_ERROR, "Failed to set output\n");
 			transaction_free(txn);
 			return NULL;
 		}
-		serial += addr_len + 1; /* +1 for newline */
+		serial[addr_len] = '\n'; /* convertt back to newline */
+		serial += addr_len + 1; /* +1 for newline (now turned null) */
 
+	}
+
+	/* stop early if this is a coinbase transaction */
+	if (txn->num_inputs == 0) {
+		txn->is_finalized = 1;
+		return txn;
 	}
 
 	signatures = (txsig_t*)calloc(txn->num_inputs, sizeof(txsig_t));
@@ -544,7 +554,9 @@ int transaction_references(transaction_t* txn, unsigned char* ref_txn_digest,
 	int i;
 	for (i = 0; i < txn->num_inputs; i++) {
 		if (memcmp(txn->inputs[i].ref_txn_digest,
-				ref_txn_digest, ref_digestlen) == 0) {
+					ref_txn_digest, 
+					ref_digestlen) == 0
+				&& txn->inputs[i].ref_index == index) {
 			return 1;
 		}
 	}
@@ -553,7 +565,6 @@ int transaction_references(transaction_t* txn, unsigned char* ref_txn_digest,
 
 int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 	int i;
-	int is_valid;
 	int input_amount;
 	int output_amount;
 	transaction_t* ref_txn;
@@ -563,18 +574,28 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 	unsigned char* digest;
 	unsigned int digestlen;
 	char* b64_encoding;
+	size_t b64_len;
 
 	unsigned char* txn_digest;
 	unsigned int txn_digestlen;
+	char* serial;
+	size_t seriallen;
 
-	is_valid = 0;
 	input_amount = 0;
 	output_amount = 0;
 
-	/* hash the transaction for verification later */
-	if (transaction_hash(txn, &txn_digest, &txn_digestlen) != 1) {
+	/* hash the unsigned transaction for verification later */
+	if (transaction_serialize(txn, &serial, &seriallen, 0) != 1) {
+		log_printf(LOG_ERROR, "Can't serialize transaction\n");
 		return 0;
 	}
+	if (util_hash((unsigned char*)serial, seriallen, &txn_digest,
+			&txn_digestlen) != 1) {
+		free(serial);
+		log_printf(LOG_ERROR, "Can't hash transaction\n");
+		return 0;
+	}
+	free(serial);
 
 	/* calculate money spent */
 	for (i = 0; i < txn->num_outputs; i++) {
@@ -587,14 +608,14 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 			txn->inputs[i].ref_txn_digest, 
 			txn->inputs[i].ref_digest_len);
 		if (ref_txn == NULL) {
-			/* referenced transaction doesn't exist */
+			log_printf(LOG_INFO, "Ref transaction doesn't exist\n");
 			free(txn_digest);
 			return 0;
 		}
 
 		ref_idx = txn->inputs[i].ref_index;
 		if (ref_idx < 0 || ref_idx > ref_txn->num_outputs-1) {
-			/* referenced output doesn't exist */
+			log_printf(LOG_INFO, "Ref output doesn't exist\n");
 			free(txn_digest);
 			return 0;
 		}
@@ -602,22 +623,29 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 		ref_output = &ref_txn->outputs[ref_idx];
 		if (util_hash_pubkey(txn->inputs[i].owner_key,
 			 &digest, &digestlen) != 1) {
-			/* unable to hash key */
+			log_printf(LOG_INFO, "Can't hash pubkey\n");
 			free(txn_digest);
 			return 0;
 		}
 
 		if (util_base64_encode(digest, digestlen, 
-				&b64_encoding, NULL) != 1) {
-			/* unable to base64 encode the key digest */
+				&b64_encoding, &b64_len) != 1) {
+			log_printf(LOG_INFO, "Can't encode pubkey\n");
 			free(txn_digest);
 			free(digest);
 			return 0;
 		}
 		
-		if (strcmp(b64_encoding, ref_output->addr_id) == 0) {
-			/* the specified address does not own the
-			 * referenced money */
+		if (b64_len != strlen(ref_output->addr_id)) {
+			log_printf(LOG_INFO, "mismatch of addrid lengths\n");
+			free(b64_encoding);
+			free(txn_digest);
+			free(digest);
+			return 0;
+		}
+
+		if (strncmp(b64_encoding, ref_output->addr_id, b64_len) != 0) {
+			log_printf(LOG_INFO, "pubkey does not match addrid\n");
 			free(b64_encoding);
 			free(txn_digest);
 			free(digest);
@@ -630,6 +658,7 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 				txn->signatures[i].len,
 				txn_digest,
 				txn_digestlen) != 1) {
+			log_printf(LOG_INFO, "signature does not match pubkey\n");
 			free(b64_encoding);
 			free(txn_digest);
 			free(digest);
@@ -644,7 +673,8 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 					txn->inputs[i].ref_txn_digest,
 					txn->inputs[i].ref_digest_len,
 					txn->inputs[i].ref_index) == 1) {
-			/* attempted double spend */
+			free(txn_digest);
+			log_printf(LOG_INFO, "double spend detected\n");
 			return 0;
 		}
 
@@ -654,9 +684,32 @@ int transaction_is_valid(transaction_t* txn, blockchain_t* chain) {
 
 	/* no spending more than you have! */
 	if (output_amount > input_amount) {
+		log_printf(LOG_INFO, "transaction spends more than it can\n");
 		return 0;
 	}
 
-	return is_valid;
+	return 1;
+}
+
+int transaction_is_valid_coinbase(transaction_t* txn, blockchain_t* chain) {
+	int i;
+	int output_amount;
+	int miner_payout;
+	if (txn->num_inputs != 0) {
+		return 0;
+	}
+
+	/* calculate money generated */
+	for (i = 0; i < txn->num_outputs; i++) {
+		output_amount += txn->outputs[i].amount;
+	}
+
+	miner_payout = blockchain_get_current_payout(chain);
+
+	if (output_amount != miner_payout) {
+		return 0;
+	}
+
+	return 1;
 }
 

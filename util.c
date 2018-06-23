@@ -419,6 +419,7 @@ int util_sign(cryptokey_t* key, unsigned char* digest, size_t digestlen,
 		EVP_PKEY_CTX_free(ctx);
 		return 0;
 	}
+	/*EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, -1);*/
 
 	if (EVP_PKEY_CTX_set_signature_md(ctx, hash_alg) <= 0) {
 		log_printf(LOG_ERROR, "Unable to set hash alg for signing\n");
@@ -481,8 +482,9 @@ int util_verify(cryptokey_t* key, unsigned char* sig, size_t siglen,
 		return 0;
 	}
 
-	if (EVP_PKEY_verify(ctx, sig, siglen, digest, digestlen) != 0) {
+	if (EVP_PKEY_verify(ctx, sig, siglen, digest, digestlen) != 1) {
 		EVP_PKEY_CTX_free(ctx);
+		log_printf(LOG_ERROR, "Signature verify failed\n");
 		return 0;
 	}
 

@@ -1,7 +1,22 @@
 #include <check.h>
 #include "transaction.h"
+#include "blockchain.h"
 #include "address.h"
 #include "util.h"
+
+static void buildup(void);
+static void teardown(void);
+
+static blockchain_t* test_chain;
+static address_t* addra;
+static address_t* addrb;
+static address_t* addrc;
+static char* ida;
+static char* idb;
+static char* idc;
+static unsigned char* digest;
+static unsigned int digestlen;
+
 
 START_TEST(transaction_create_01) {
 	transaction_t* txn;
@@ -35,7 +50,7 @@ START_TEST(transaction_serialize_01) {
 	/* create dummy transaction */
 	prev_txn = transaction_new(0, 1);
 	fail_unless(prev_txn != NULL, "prev transaction create failed");
-	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id, strlen(prev_addr_id));
+	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id);
 	fail_unless(ret == 1, "prev transaction set output failed");
 	ret = transaction_finalize(prev_txn);
 	fail_unless(ret == 1, "prev transaction finalize failed");
@@ -50,7 +65,7 @@ START_TEST(transaction_serialize_01) {
 	fail_unless(ret == 1, "new transaction set input failed");
 	addr_id = address_get_id(addr);
 	fail_unless(addr_id != NULL, "addr get id failed");
-	ret = transaction_set_output(txn, 0, 25, addr_id, strlen(addr_id));
+	ret = transaction_set_output(txn, 0, 25, addr_id);
 	fail_unless(ret == 1, "new transaction set output failed");
 	ret = transaction_finalize(txn);
 	fail_unless(ret == 1, "new transaction finalize failed");
@@ -66,6 +81,9 @@ START_TEST(transaction_serialize_01) {
 	fail_unless(ret == 1, "serialization of copy failed");
 
 	/* compare outputs */
+	/*printf("%s\n", str);
+	printf("%s\n", str_copy);
+	prntf("%lu vs %lu\n", str_len, str_copy_len);*/
 	fail_unless(str_copy_len == str_len, "serialization lengths do not match");
 	ret = strncmp(str, str_copy, str_copy_len);
 	/*printf("%s\n---------------------------\n%s", str, str_copy);*/
@@ -84,6 +102,80 @@ START_TEST(transaction_serialize_01) {
 }
 END_TEST
 
+void buildup(void) {
+	int ret;
+	unsigned char* prev_digest;
+	unsigned int prev_digestlen;
+	block_t* new_block;
+	block_t* last_block;
+	transaction_t* txn;
+
+	addra = address_new();
+	ida = address_get_id(addra);
+	addrb = address_new();
+	idb = address_get_id(addrb);
+	addrc = address_new();
+	idc = address_get_id(addrc);
+	
+	/* add a new block */
+	test_chain = blockchain_new();
+	last_block = blockchain_get_last_block(test_chain);
+	block_hash(last_block, &prev_digest, &prev_digestlen);
+	new_block = block_new(prev_digest, prev_digestlen);
+	blockchain_add_block(test_chain, new_block);
+
+	/* send money to A*/
+	txn = transaction_new(0, 1);
+	transaction_set_output(txn, 0, 1000, ida);
+	transaction_finalize(txn);
+	block_add_transaction(new_block, txn);
+	transaction_hash(txn, &digest, &digestlen);
+	
+	/* add a new block */
+	last_block = blockchain_get_last_block(test_chain);
+	block_hash(last_block, &prev_digest, &prev_digestlen);
+	new_block = block_new(prev_digest, prev_digestlen);
+	blockchain_add_block(test_chain, new_block);
+
+	/* use money from previous txn, split it, and send to
+	 * B and C */
+	txn = transaction_new(1, 2);
+	transaction_set_input(txn, 0, digest, digestlen, 0, addra->keypair);
+	transaction_set_output(txn, 0, 500, idb);
+	transaction_set_output(txn, 1, 500, idc);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	fail_unless(ret == 1, "transaction should be valid");
+	block_add_transaction(new_block, txn);
+	free(digest);
+	/* leave reference to old transaction in digest for tests */
+	transaction_hash(txn, &digest, &digestlen);
+}
+
+void teardown(void) {
+	blockchain_free(test_chain);
+	address_free(addra);
+	address_free(addrb);
+	address_free(addrc);
+	free(ida);
+	free(idb);
+	free(idc);
+}
+
+START_TEST(transaction_validate_01) {
+	int ret;
+	transaction_t* txn;
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, digest, digestlen, 1, addrc->keypair);
+	free(digest);
+	transaction_set_output(txn, 0, 500, ida);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret == 1, "transaction should be valid");
+}
+END_TEST
+
 Suite* transaction_suite(void) {
 	Suite* s;
 	TCase* tc;
@@ -95,6 +187,11 @@ Suite* transaction_suite(void) {
 
 	tc = tcase_create("transaction_serialize");
 	tcase_add_test(tc, transaction_serialize_01);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("transaction_validate");
+	tcase_add_checked_fixture(tc, buildup, teardown);
+	tcase_add_test(tc, transaction_validate_01);
 	suite_add_tcase(s, tc);
 	return s;
 }

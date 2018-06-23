@@ -24,7 +24,7 @@ START_TEST(block_create_01) {
 	/* create dummy transaction */
 	prev_txn = transaction_new(0, 1);
 	fail_unless(prev_txn != NULL, "prev transaction create failed");
-	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id, strlen(prev_addr_id));
+	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id);
 	fail_unless(ret == 1, "prev transaction set output failed");
 	ret = transaction_finalize(prev_txn);
 	fail_unless(ret == 1, "prev transaction finalize failed");
@@ -39,7 +39,7 @@ START_TEST(block_create_01) {
 	fail_unless(ret == 1, "new transaction set input failed");
 	addr_id = address_get_id(addr);
 	fail_unless(addr_id != NULL, "addr get id failed");
-	ret = transaction_set_output(txn, 0, 25, addr_id, strlen(addr_id));
+	ret = transaction_set_output(txn, 0, 25, addr_id);
 	fail_unless(ret == 1, "new transaction set output failed");
 	ret = transaction_finalize(txn);
 	fail_unless(ret == 1, "new transaction finalize failed");
@@ -92,7 +92,7 @@ START_TEST(block_serialize_01) {
 	/* create dummy transaction */
 	prev_txn = transaction_new(0, 1);
 	fail_unless(prev_txn != NULL, "prev transaction create failed");
-	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id, strlen(prev_addr_id));
+	ret = transaction_set_output(prev_txn, 0, 25, prev_addr_id);
 	fail_unless(ret == 1, "prev transaction set output failed");
 	ret = transaction_finalize(prev_txn);
 	fail_unless(ret == 1, "prev transaction finalize failed");
@@ -107,7 +107,7 @@ START_TEST(block_serialize_01) {
 	fail_unless(ret == 1, "new transaction set input failed");
 	addr_id = address_get_id(addr);
 	fail_unless(addr_id != NULL, "addr get id failed");
-	ret = transaction_set_output(txn, 0, 25, addr_id, strlen(addr_id));
+	ret = transaction_set_output(txn, 0, 25, addr_id);
 	fail_unless(ret == 1, "new transaction set output failed");
 	ret = transaction_finalize(txn);
 	fail_unless(ret == 1, "new transaction finalize failed");
