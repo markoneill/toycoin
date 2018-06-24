@@ -11,6 +11,7 @@
 #define MAX_SERIAL_HEADER_LEN	32
 
 /*static int wallet_get_address_count(wallet_t* wallet);*/
+static coin_t* remove_spent_coins(blockchain_t* chain, coin_t* head);
 
 wallet_t* wallet_new(void) {
 	wallet_t* wallet;
@@ -177,6 +178,33 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 	return count;
 }*/
 
+coin_t* remove_spent_coins(blockchain_t* chain, coin_t* head) {
+	coin_t* cur_coin;
+	coin_t* tmp_coin;
+	unsigned char* digest;
+	unsigned int digest_len;
+
+	cur_coin = head;
+	while (cur_coin != NULL) {
+		tmp_coin = cur_coin->next;
+		if (transaction_hash(cur_coin->transaction,
+					&digest, &digest_len) != 1) {
+			log_printf(LOG_ERROR, "Failed to hash transaction\n");
+			return NULL;
+		}
+		if (blockchain_reference_exists(chain, digest, digest_len,
+				cur_coin->index) == 1) {
+			coin_free(cur_coin);
+			if (cur_coin == head) {
+				head = tmp_coin;
+			}
+		}
+		cur_coin = tmp_coin;
+		free(digest);
+	}
+	return head;
+}
+
 int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
 	address_t* cur_addr;
 	char* address_id;
@@ -187,9 +215,16 @@ int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
 	while (cur_addr != NULL) {
 		address_id = address_get_id(cur_addr);
 
+		/* remove all coins first */	
+		coin_free_coins(cur_addr->coins);
+
+		/* find current coins */
 		coins = blockchain_get_coins(chain, address_id);
-		total += coin_sum_coins(coins);
+		coins = remove_spent_coins(chain, coins);
+
+		/* add coins to address */
 		cur_addr->coins = coins;
+		total += coin_sum_coins(coins);
 
 		cur_addr = cur_addr->next;
 		free(address_id);

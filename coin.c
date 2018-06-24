@@ -39,6 +39,16 @@ coin_t* coin_add_coins(coin_t* prev, coin_t* next) {
 	return head;
 }
 
+void coin_free_coins(coin_t* head) {
+	coin_t* tmp;
+	while (head != NULL) {
+		tmp = head->next;
+		coin_free(head);
+		head = tmp;
+	}
+	return;
+}
+
 int coin_sum_coins(coin_t* coin) {
 	int value;
 

@@ -146,6 +146,9 @@ START_TEST(wallet_sync_01) {
 	new_block = block_new(prev_digest, prev_digestlen);
 	blockchain_add_block(test_chain, new_block);
 
+	ret = wallet_sync(wallet, test_chain);
+	fail_unless(ret == 0, "unexpected funds in wallet");
+
 	/* use money from previous txn, split it, and send to
 	 * B and C */
 	txn = transaction_new(1, 2);
@@ -156,9 +159,30 @@ START_TEST(wallet_sync_01) {
 	ret = transaction_is_valid(txn, test_chain);
 	fail_unless(ret == 1, "transaction should be valid");
 	block_add_transaction(new_block, txn);
+	free(digest);
+	transaction_hash(txn, &digest, &digestlen);
 
+	/* check money */
 	ret = wallet_sync(wallet, test_chain);
 	fail_unless(ret == 1000, "lost money from wallet");
+
+	last_block = blockchain_get_last_block(test_chain);
+	block_hash(last_block, &prev_digest, &prev_digestlen);
+	new_block = block_new(prev_digest, prev_digestlen);
+	blockchain_add_block(test_chain, new_block);
+
+	/* spend some of it */
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, digest, digestlen, 0, addrb->keypair);
+	transaction_set_output(txn, 0, 500, ida);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	fail_unless(ret == 1, "transaction should be valid");
+	block_add_transaction(new_block, txn);
+
+	/* check balance again */		
+	ret = wallet_sync(wallet, test_chain);
+	fail_unless(ret == 500, "kept money from wallet");
 
 	free(digest);
 	address_free(addra);
