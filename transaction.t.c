@@ -16,6 +16,8 @@ static char* idb;
 static char* idc;
 static unsigned char* digest;
 static unsigned int digestlen;
+static unsigned char* src_txn_digest;
+static unsigned int src_txn_digestlen;
 
 
 START_TEST(transaction_create_01) {
@@ -130,6 +132,7 @@ void buildup(void) {
 	transaction_finalize(txn);
 	block_add_transaction(new_block, txn);
 	transaction_hash(txn, &digest, &digestlen);
+	transaction_hash(txn, &src_txn_digest, &src_txn_digestlen);
 	
 	/* add a new block */
 	last_block = blockchain_get_last_block(test_chain);
@@ -160,19 +163,90 @@ void teardown(void) {
 	free(ida);
 	free(idb);
 	free(idc);
+	free(src_txn_digest);
+	free(digest);
 }
 
 START_TEST(transaction_validate_01) {
 	int ret;
 	transaction_t* txn;
 	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, src_txn_digest, src_txn_digestlen, 0, addra->keypair);
+	transaction_set_output(txn, 0, 1000, idb);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret != 1, "allowed double spending");
+}
+END_TEST
+
+START_TEST(transaction_validate_02) {
+	int ret;
+	transaction_t* txn;
+	txn = transaction_new(1, 1);
 	transaction_set_input(txn, 0, digest, digestlen, 1, addrc->keypair);
-	free(digest);
 	transaction_set_output(txn, 0, 500, ida);
 	transaction_finalize(txn);
 	ret = transaction_is_valid(txn, test_chain);
 	transaction_free(txn);
 	fail_unless(ret == 1, "transaction should be valid");
+}
+END_TEST
+
+START_TEST(transaction_validate_03) {
+	int ret;
+	transaction_t* txn;
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, digest, digestlen, 1, addra->keypair);
+	transaction_set_output(txn, 0, 500, ida);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret != 1, "spent coins we don't own");
+}
+END_TEST
+
+START_TEST(transaction_validate_04) {
+	int ret;
+	transaction_t* txn;
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, digest, digestlen, 1, addrc->keypair);
+	transaction_set_output(txn, 0, 501, ida);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret != 1, "spent more than owned");
+}
+END_TEST
+
+START_TEST(transaction_validate_05) {
+	int ret;
+	transaction_t* txn;
+	unsigned char fakedigest[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+					0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+					0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+					0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, fakedigest, sizeof(fakedigest), 1, addrc->keypair);
+	transaction_set_output(txn, 0, 500, ida);
+	transaction_finalize(txn);
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret != 1, "allowed unknown coins to be spent");
+}
+END_TEST
+
+START_TEST(transaction_validate_06) {
+	int ret;
+	transaction_t* txn;
+	txn = transaction_new(1, 1);
+	transaction_set_input(txn, 0, digest, digestlen, 1, addrc->keypair);
+	transaction_set_output(txn, 0, 500, ida);
+	transaction_finalize(txn);
+	txn->signatures[0].signature[0] ^= txn->signatures[0].signature[0];
+	ret = transaction_is_valid(txn, test_chain);
+	transaction_free(txn);
+	fail_unless(ret != 1, "accepted fake signature");
 }
 END_TEST
 
@@ -192,6 +266,11 @@ Suite* transaction_suite(void) {
 	tc = tcase_create("transaction_validate");
 	tcase_add_checked_fixture(tc, buildup, teardown);
 	tcase_add_test(tc, transaction_validate_01);
+	tcase_add_test(tc, transaction_validate_02);
+	tcase_add_test(tc, transaction_validate_03);
+	tcase_add_test(tc, transaction_validate_04);
+	tcase_add_test(tc, transaction_validate_05);
+	tcase_add_test(tc, transaction_validate_06);
 	suite_add_tcase(s, tc);
 	return s;
 }

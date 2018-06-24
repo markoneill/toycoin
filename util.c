@@ -484,7 +484,7 @@ int util_verify(cryptokey_t* key, unsigned char* sig, size_t siglen,
 
 	if (EVP_PKEY_verify(ctx, sig, siglen, digest, digestlen) != 1) {
 		EVP_PKEY_CTX_free(ctx);
-		log_printf(LOG_ERROR, "Signature verify failed\n");
+		log_printf(LOG_INFO, "Signature verify failed\n");
 		return 0;
 	}
 

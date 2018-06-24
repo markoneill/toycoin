@@ -5,7 +5,7 @@
 
 #ifndef NO_LOG
 FILE* g_log_file = NULL;
-log_level_t g_log_level = LOG_DEBUG;
+log_level_t g_log_level = LOG_WARNING;
 
 void level_printf(log_level_t level);
 
