@@ -39,15 +39,8 @@ void wallet_free(wallet_t* wallet) {
 	return;
 }
 
-int wallet_add_address(wallet_t* wallet) {
+int wallet_add_address(wallet_t* wallet, address_t* new_addr) {
 	address_t* last_addr;
-	address_t* new_addr;
-
-	new_addr = address_new();
-	if (new_addr == NULL) {
-		log_printf(LOG_ERROR, "Address creation failed\n");
-		return 0;
-	}
 
 	if (wallet->addresses == NULL) {
 		wallet->addresses = new_addr;
@@ -60,6 +53,7 @@ int wallet_add_address(wallet_t* wallet) {
 	}
 
 	last_addr->next = new_addr;
+
 	return 1;
 }
 
@@ -119,7 +113,6 @@ wallet_t* wallet_load(char* filepath) {
 	fclose(wallet_file);
 	return wallet;
 }
-
 
 int wallet_save(wallet_t* wallet, char* filepath) {
 	FILE* wallet_file;
@@ -187,10 +180,9 @@ int wallet_save(wallet_t* wallet, char* filepath) {
 int wallet_sync(wallet_t* wallet, blockchain_t* chain) {
 	address_t* cur_addr;
 	char* address_id;
-	coin_t* coins;
-	int total;
+	coin_t* coins = NULL;
+	int total = 0;
 
-	total = 0;
 	cur_addr = wallet->addresses;
 	while (cur_addr != NULL) {
 		address_id = address_get_id(cur_addr);

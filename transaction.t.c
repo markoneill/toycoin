@@ -239,13 +239,16 @@ END_TEST
 START_TEST(transaction_validate_06) {
 	int ret;
 	transaction_t* txn;
+	address_t* fakeaddress = address_new();
 	txn = transaction_new(1, 1);
 	transaction_set_input(txn, 0, digest, digestlen, 1, addrc->keypair);
 	transaction_set_output(txn, 0, 500, ida);
+	txn->inputs[0].owner_key = fakeaddress->keypair;
 	transaction_finalize(txn);
-	txn->signatures[0].signature[0] ^= txn->signatures[0].signature[0];
 	ret = transaction_is_valid(txn, test_chain);
+	txn->inputs[0].owner_key = addrc->keypair;
 	transaction_free(txn);
+	address_free(fakeaddress);
 	fail_unless(ret != 1, "accepted fake signature");
 }
 END_TEST

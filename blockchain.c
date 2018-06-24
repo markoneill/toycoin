@@ -111,6 +111,7 @@ coin_t* blockchain_get_coins(blockchain_t* chain, char* address_id) {
 	coin_t* coins_head;
 	coin_t* coins;
 
+	coins = NULL;
 	coins_head = NULL;
 	cur_block = chain->head;
 	while (cur_block != NULL) {

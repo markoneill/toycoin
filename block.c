@@ -48,26 +48,50 @@ block_t* block_new(unsigned char* prev_digest, size_t digest_len) {
 }
 
 block_t* block_new_genesis(void) {
+	char addr_id[] = "60dlyfVzh30px8+EDu0KPiVpLAcUKL98U8TRlVa7L8I=";
+	int amount = INT_MAX;
+	transaction_t* txn;
 	block_t* block;
 	unsigned char* digest;
-	int digest_len;
+	int digest_len = 32;
 
-	digest_len = util_digestlen();
-
-	/* Genesis block has zeroes for its hash */
+	/* Genesis block has zeroes for its prev hash */
 	digest = (unsigned char*)calloc(1, digest_len);
 	if (digest == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
 		return NULL;
 	}
 	block = block_new(digest, digest_len);
-
-	/* Genesis block needs static date */
-	block->timestamp.tv_sec = 1529210382;
-	block->timestamp.tv_nsec = 0;
 	if (block == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis block\n");
 		free(digest);
+		return NULL;
+	}
+	/* Genesis block needs static date */
+	block->timestamp.tv_sec = 1529210382;
+	block->timestamp.tv_nsec = 0;
+
+	/* add a single transaction */
+	txn = transaction_new(0, 1);
+	if (txn == NULL) {
+		log_printf(LOG_ERROR, "Unable to form genesis block\n");
+		block_free(block);
+		return NULL;
+	}
+	if (transaction_set_output(txn, 0, amount, addr_id) != 1) {
+		log_printf(LOG_ERROR, "Unable to form genesis block\n");
+		block_free(block);
+		return NULL;
+	}
+	if (transaction_finalize(txn) != 1) {
+		log_printf(LOG_ERROR, "Unable to form genesis block\n");
+		block_free(block);
+		return NULL;
+	}
+
+	if (block_add_transaction(block, txn) != 1) {
+		log_printf(LOG_ERROR, "Unable to form genesis block\n");
+		block_free(block);
 		return NULL;
 	}
 	return block;
@@ -423,8 +447,10 @@ coin_t* block_get_coins(block_t* block, char* address_id) {
 	transaction_t* txn;
 	coin_t* coins;
 	coin_t* coin;
-	int num_txns = block->num_transactions;
 
+	coins = NULL;
+	coin = NULL;
+	int num_txns = block->num_transactions;
 	for (i = 0; i < num_txns; i++) {
 		txn = block->transactions[i];
 		coin = transaction_get_coin(txn, address_id);
