@@ -13,10 +13,13 @@ typedef struct blockchain {
 
 blockchain_t* blockchain_new(void);
 void blockchain_free(blockchain_t* chain);
+block_t* blockchain_new_block(blockchain_t* chain);
 int blockchain_add_block(blockchain_t* chain, block_t* block);
 int blockchain_get_length(blockchain_t* chain);
 block_t* blockchain_get_last_block(blockchain_t* chain);
 int blockchain_get_current_payout(blockchain_t* chain);
+int blockchain_get_current_target(blockchain_t* chain, 
+			unsigned char** target, unsigned int* target_len);
 
 /* Returns a list of coins owned by the given address */
 coin_t* blockchain_get_coins(blockchain_t* chain, char* address_id);

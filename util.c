@@ -4,6 +4,7 @@
 #include <openssl/bio.h> /* for BIO operations */
 #include <openssl/engine.h> /* for ENGINE_cleanup() */
 #include <string.h> /* for memcpy */
+#include <arpa/inet.h> /* for htonl */
 #include "log.h"
 #include "util.h"
 
@@ -506,21 +507,17 @@ char* util_parse_int(char* serial, const char* token, size_t token_len,
 	return serial;
 }
 
-char* util_parse_timestamp(char* serial, const char* token, size_t token_len, 
-		struct timespec* out) {
+char* util_parse_timestamp(char* serial, const char* token, size_t token_len,
+		time_t* out) {
+	int retval;
 	if (strncmp(serial, token, token_len) != 0) {
 		log_printf(LOG_ERROR, "Failed to parse token %s\n", token);
 		return NULL;
 	}
 	serial += token_len;
-	out->tv_sec = strtol(serial, &serial, 10);
-	if (*serial != '.') {
-		log_printf(LOG_ERROR, "No radix point found\n");
-		return NULL;
-	}
+	retval = strtol(serial, &serial, 10);
 	serial++;
-	out->tv_nsec = strtol(serial, &serial, 10);
-	serial++;
+	*out = retval;
 	return serial;
 }
 
@@ -531,5 +528,15 @@ char* util_parse_str(char* serial, const char* token, size_t token_len) {
 	}
 	serial += token_len;
 	return serial;
+}
+
+int util_digest_meets_target(unsigned char* digest, unsigned int digestlen,
+		unsigned int target) {
+	/*printf("%s\n", BN_bn2hex());*/
+	return 1;
+}
+
+unsigned int util_get_new_target(int diff, int period, unsigned int current_target) {
+	return 0;
 }
 

@@ -1,6 +1,7 @@
 #include <stdio.h> /* for sprintf */
 #include <string.h> /* for memcpy */
 #include <stdlib.h> /* for calloc */
+#include <time.h> /* for clock_gettime */
 
 #include "block.h"
 #include "transaction.h"
@@ -15,14 +16,16 @@ static const char time_str[] = "timestamp:";
 static const char digest_len_str[] = "prev_digest_len:";
 static const char digest_str[] = "prev_digest:";
 static const char nonce_str[] = "nonce:";
-static const char target_str[] = "target_bits:";
+static const char block_target_len_str[] = "target_len:";
+static const char block_target_str[] = "target:";
 static const char num_txns_str[] = "num_transactions:";
-static const char header_serial_format[] = "version:%0d\n"
-			     "timestamp:%ld.%.9ld\n"
+static const char header_serial_format[] = "version:%d\n"
+			     "timestamp:%ld\n"
 			     "prev_digest_len:%d\n"
 			     "prev_digest:%s\n"
 			     "nonce:%d\n"
-                             "target_bits:%d\n"
+			     "target_len:%d\n"
+                             "target:%s\n"
 			     "num_transactions:%d\n";
 
 static const char txn_len_str[] = "txn_len:";
@@ -41,7 +44,7 @@ block_t* block_new(unsigned char* prev_digest, size_t digest_len) {
 	new_block->version = BLOCK_VERSION;
 	new_block->transactions = NULL;
 	new_block->max_transactions = 0;
-	clock_gettime(CLOCK_REALTIME, &new_block->timestamp);
+	new_block->timestamp = time(NULL);
 	new_block->prev_digest_len = digest_len;
 	new_block->prev_digest = prev_digest;
 	return new_block;
@@ -49,11 +52,17 @@ block_t* block_new(unsigned char* prev_digest, size_t digest_len) {
 
 block_t* block_new_genesis(void) {
 	char addr_id[] = "60dlyfVzh30px8+EDu0KPiVpLAcUKL98U8TRlVa7L8I=";
+	unsigned char base_target[] = {0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	int amount = INT_MAX;
 	transaction_t* txn;
 	block_t* block;
 	unsigned char* digest;
 	int digest_len = 32;
+	unsigned char* target;
+	int target_len = 32;
 
 	/* Genesis block has zeroes for its prev hash */
 	digest = (unsigned char*)calloc(1, digest_len);
@@ -61,15 +70,27 @@ block_t* block_new_genesis(void) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis digest\n");
 		return NULL;
 	}
+
+	/* set target */
+	target = (unsigned char*)calloc(1, target_len);
+	if (target == NULL) {
+		log_printf(LOG_ERROR, "Unable to allocate geneis target\n");
+		free(digest);
+		return NULL;
+	}
+	memcpy(target, base_target, target_len);
+
 	block = block_new(digest, digest_len);
 	if (block == NULL) {
 		log_printf(LOG_ERROR, "Unable to allocate genesis block\n");
 		free(digest);
+		free(target);
 		return NULL;
 	}
 	/* Genesis block needs static date */
-	block->timestamp.tv_sec = 1529210382;
-	block->timestamp.tv_nsec = 0;
+	block->timestamp = 1529210382;
+	block->target = target;
+	block->target_len = target_len;
 
 	/* add a single transaction */
 	txn = transaction_new(0, 1);
@@ -106,12 +127,14 @@ void block_free(block_t* block) {
 		free(block->transactions);
 	}
 	free(block->prev_digest);
+	if (block->target != NULL) {
+		free(block->target);
+	}
 	free(block);
 	return;
 }
 
 int block_is_valid(block_t* block) {
-	int i;
 	unsigned char* digest;
 	unsigned int digestlen;
 
@@ -120,9 +143,9 @@ int block_is_valid(block_t* block) {
 		return 0;
 	}
 
-	for (i = 0; i < block->target_bits; i++) {
-		/* XXX coming soon */
-	}
+	/* check timestamp
+	 * check target
+	 */
 
 	free(digest);
 	return 1;
@@ -157,6 +180,7 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 	char* serial;
 	int pos;
 	char* digest_str;
+	char* target_str;
 	char** serialized_txns;
 	size_t* serialized_txn_lens;
 	size_t serial_len;
@@ -168,16 +192,21 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 		log_printf(LOG_ERROR, "Failed to convert digest to string\n");
 		return 0;
 	}
+	if (util_bytes_to_str(block->target, block->target_len,
+			&target_str) == 0) {
+		log_printf(LOG_ERROR, "Failed to convert target to string\n");
+		return 0;
+	}
 	written = snprintf(NULL,
 			0,
 			header_serial_format,
 			block->version,
-			block->timestamp.tv_sec,
-			block->timestamp.tv_nsec,
+			block->timestamp,
 			(int)strlen(digest_str),
 			digest_str,
 			block->nonce,
-			block->target_bits,
+			(int)strlen(target_str),
+			target_str,
 			block->num_transactions);
 	if (written == -1) {
 		log_printf(LOG_ERROR, "Cannot serialize block header\n");
@@ -236,12 +265,12 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 			serial_len+1,
 			header_serial_format,
 			block->version,
-			block->timestamp.tv_sec,
-			block->timestamp.tv_nsec,
+			block->timestamp,
 			(int)strlen(digest_str),
 			digest_str,
 			block->nonce,
-			block->target_bits,
+			(int)strlen(target_str),
+			target_str,
 			block->num_transactions);
 	if (written == -1) {
 		log_printf(LOG_ERROR, "Failed to write block header\n");
@@ -251,6 +280,7 @@ int block_serialize(block_t* block, char** data, size_t* len) {
 		return 0;
 	}
 	free(digest_str);
+	free(target_str);
 
 	pos = written;
 	for (i = 0; i < block->num_transactions; i++) {
@@ -289,12 +319,14 @@ void free_tmp_serials(char** serials, size_t num_serials) {
 block_t* block_deserialize(char* serial, size_t len) {
 	int i;
 	int version;
-	struct timespec timestamp;
+	time_t timestamp;
 	int digest_len;
 	size_t bin_digest_len;
 	unsigned char* digest;
 	int nonce;
-	int target;
+	int target_len;
+	size_t bin_target_len;
+	unsigned char* target;
 	int num_txns;
 
 	int txn_len;
@@ -331,11 +363,21 @@ block_t* block_deserialize(char* serial, size_t len) {
 		log_printf(LOG_ERROR, "Failed to read block nonce\n");
 		return NULL;
 	}
-	serial = util_parse_int(serial, target_str, strlen(target_str), &target);
+	serial = util_parse_int(serial, block_target_len_str, strlen(block_target_len_str), &target_len);
 	if (serial == NULL) {
-		log_printf(LOG_ERROR, "Failed to read block target\n");
+		log_printf(LOG_ERROR, "Failed to read block target length\n");
 		return NULL;
 	}
+	serial = util_parse_str(serial, block_target_str, strlen(block_target_str));
+	if (serial == NULL) {
+		log_printf(LOG_ERROR, "Failed to read block target token\n");
+		return NULL;
+	}
+	if (util_str_to_bytes(serial, target_len, &target, &bin_target_len) == 0) {
+		log_printf(LOG_ERROR, "Failed to read target\n");
+		return NULL;
+	}
+	serial += target_len + 1; /* +1 for newline */
 	serial = util_parse_int(serial, num_txns_str, strlen(num_txns_str), &num_txns);
 	if (serial == NULL) {
 		log_printf(LOG_ERROR, "Failed to read block transaction count\n");
@@ -351,7 +393,8 @@ block_t* block_deserialize(char* serial, size_t len) {
 	block->version = version;
 	block->timestamp = timestamp;
 	block->nonce = nonce;
-	block->target_bits = target;
+	block->target_len = bin_target_len;
+	block->target = target;
 	
 	for (i = 0; i < num_txns; i++) {
 		serial = util_parse_int(serial, txn_len_str, strlen(txn_len_str), &txn_len);	
@@ -461,6 +504,16 @@ coin_t* block_get_coins(block_t* block, char* address_id) {
 
 int block_set_nonce(block_t* block, int nonce) {
 	block->nonce = nonce;
+	return 1;
+}
+
+int block_set_target(block_t* block, unsigned char* target, int target_len) {
+	if (block->target != NULL) {
+		log_printf(LOG_INFO, "Block already has target set.\n");
+		free(block->target);
+	}
+	block->target = target;
+	block->target_len = target_len;
 	return 1;
 }
 

@@ -9,9 +9,20 @@
 #include "log.h"
 #include "util.h"
 
+/* adjust target approximately daily */
+#define ADJUSTMENT_TIME		(60 * 60 * 24)
+/* target 1 block every 60 seconds */
+#define BLOCK_TARGET_TIME	(60)
+/* so recaluate target every 1440 blocks */
+#define BLOCK_ADJUST_PERIOD	(ADJUSTMENT_TIME / BLOCK_TARGET_TIME)
+/* don't allow new targets to be more than 4x larger/smaller than previous */
+#define TARGET_CONSTRAIN_FACTOR	(4)
+
+/* serialization strings */
 static const char begin_str[] = "-----BEGIN BLOCK-----\n";
 static const char block_len_str[] = "block_len:";
 static const char end_str[] = "------END BLOCK------\n";
+static block_t* blockchain_get_block(blockchain_t* chain, int index);
 
 blockchain_t* blockchain_new(void) {
 	blockchain_t* chain;
@@ -71,6 +82,96 @@ int blockchain_get_current_payout(blockchain_t* chain) {
 	return 1000;
 }
 
+int blockchain_get_current_target(blockchain_t* chain, 
+			unsigned char** target, unsigned int* target_len) {
+	block_t* old_block;
+	int old_index;
+	time_t old_time;
+	time_t new_time;
+	int time_diff;
+	unsigned char* cur_target;
+	unsigned int cur_target_len;
+	if (chain->length % BLOCK_ADJUST_PERIOD != 0) {
+		cur_target_len = chain->tail->target_len;
+		cur_target = (unsigned char*)malloc(cur_target_len);
+		if (cur_target == NULL) {
+			log_printf(LOG_ERROR, "Unable to allocate target\n");
+			return 0;
+		}
+		memcpy(cur_target, chain->tail->target, cur_target_len);
+	}
+	else {
+		/* We need to adjust target */
+		old_index = (chain->length - 1) - BLOCK_ADJUST_PERIOD;
+		old_block = blockchain_get_block(chain, old_index);
+		if (old_block == NULL) {
+			log_printf(LOG_ERROR, "Failed to find old block\n");
+			return 0;
+		}
+		old_time = old_block->timestamp;
+		new_time = chain->tail->timestamp;
+		time_diff = difftime(new_time, old_time);
+
+		/* We cap the the difference to smooth difficulty */
+		if (time_diff > TARGET_CONSTRAIN_FACTOR * ADJUSTMENT_TIME) {
+			time_diff = TARGET_CONSTRAIN_FACTOR * ADJUSTMENT_TIME;
+		}
+		if (time_diff < ADJUSTMENT_TIME / TARGET_CONSTRAIN_FACTOR) {
+			time_diff = ADJUSTMENT_TIME / TARGET_CONSTRAIN_FACTOR;
+		}
+
+		/*new_target = util_get_new_target(time_diff,
+				ADJUSTMENT_TIME,
+				chain->head->target,
+				chain->head->target_len,
+				chain->tail->target,
+				chain->tail->target_len);*/
+
+		/* don't allow the new target to be too easy */
+	}
+
+	*target = cur_target;
+	if (target_len != NULL) {
+		*target_len = cur_target_len;
+	}
+
+	return 1;
+}
+
+
+block_t* blockchain_new_block(blockchain_t* chain) {
+	unsigned char* prev_digest;
+	unsigned int prev_digestlen;
+	unsigned char* target;
+	unsigned int target_len;
+
+	block_t* new_block;
+
+	if (block_hash(chain->tail, &prev_digest, &prev_digestlen) == 0) {
+		log_printf(LOG_ERROR, "Unable to hash previous block\n");
+		return NULL;
+	}
+	new_block = block_new(prev_digest, prev_digestlen);
+	if (new_block == NULL) {
+		log_printf(LOG_ERROR, "Unable to make new block for chain\n");
+		free(prev_digest);
+		return NULL;
+	}
+
+	if (blockchain_get_current_target(chain, &target, &target_len) != 1) {
+		log_printf(LOG_ERROR, "Unable to get target\n");
+		block_free(new_block);
+		return NULL;
+	}
+	if (block_set_target(new_block, target, target_len) != 1) {
+		log_printf(LOG_ERROR, "Unable to set target\n");
+		block_free(new_block);
+		return NULL;
+	}
+
+	return new_block;
+}
+
 int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	unsigned char* tail_digest;
 	unsigned int tail_digest_len;
@@ -105,6 +206,19 @@ int blockchain_add_block(blockchain_t* chain, block_t* block) {
 	return 1;
 }
 
+block_t* blockchain_get_block(blockchain_t* chain, int index) {
+	int i;
+	block_t* cur_block;
+	cur_block = chain->head;
+	if (index >= chain->length) {
+		return NULL;
+	}
+
+	for (i = 0; i < index; i++) {
+		cur_block = cur_block->next;
+	}
+	return cur_block;
+}
 
 coin_t* blockchain_get_coins(blockchain_t* chain, char* address_id) {
 	block_t* cur_block;

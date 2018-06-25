@@ -6,13 +6,15 @@
 
 #define TRANSACTION_THRESHOLD	5
 
+
 transaction_t* recv_txn(void);
 void node_process_block(blockchain_t* chain);
 
 void node_start(void) {
 	/*blockchain_t* chain;
 	wallet_t* wallet;*/
-	
+	unsigned int target = 0xcb04041b;
+	util_digest_meets_target(NULL, 0, target);
 	return;
 }
 

@@ -3,6 +3,10 @@
 #include "transaction.h"
 #include "address.h"
 
+unsigned char* dummy_mem(int size) {
+	return calloc(1, size);
+}
+
 START_TEST(block_create_01) {
 	block_t* block;
 	block_t* new_block;
@@ -50,6 +54,7 @@ START_TEST(block_create_01) {
 	fail_unless(block != NULL, "create genesis block failed");
 	block_hash(block, &digest, (unsigned int*)&digest_len);
 	new_block = block_new(digest, digest_len);
+	block_set_target(new_block, dummy_mem(32), 32);
 	fail_unless(new_block != NULL, "create new block failed");
 	ret = block_add_transaction(new_block, prev_txn);
 	fail_unless(ret == 1, "add transaction 1 failed");
@@ -118,6 +123,7 @@ START_TEST(block_serialize_01) {
 	fail_unless(block != NULL, "create genesis block failed");
 	block_hash(block, &digest, (unsigned int*)&digest_len);
 	new_block = block_new(digest, digest_len);
+	block_set_target(new_block, dummy_mem(32), 32);
 	fail_unless(new_block != NULL, "create new block failed");
 	ret = block_add_transaction(new_block, prev_txn);
 	fail_unless(ret == 1, "add transaction 1 failed");

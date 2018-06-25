@@ -5,7 +5,7 @@
  * a thin wrapper around our chosen crypto library
  * (OpenSSL). */
 
-#include <openssl/evp.h> /* for EVP_MAX_MD_SIZE */
+#include <openssl/evp.h> /* for EVP_PKEY */
 
 typedef struct cryptokey {
 	EVP_PKEY* ossl_key;
@@ -40,11 +40,13 @@ int util_verify(cryptokey_t* key, unsigned char* sig, size_t siglen,
 int util_base64_encode(const unsigned char* input, size_t inlen, 
 		char** output, size_t* outlen);
 int util_bytes_to_str(unsigned char* buffer, size_t buffer_len, char** str);
-int util_str_to_bytes(char* str, size_t len, unsigned char** bufout,
-		size_t* outlen);
+int util_str_to_bytes(char* str, size_t len, unsigned char** bufout, size_t* outlen);
 char* util_parse_str(char* serial, const char* token, size_t token_len);
 char* util_parse_int(char* serial, const char* token, size_t token_len, int* out);
-char* util_parse_timestamp(char* serial, const char* token, size_t token_len, 
-		struct timespec* out);
+char* util_parse_timestamp(char* serial, const char* token, size_t token_len, time_t* out);
 
+/* Difficulty functions */
+int util_digest_meets_target(unsigned char* digest, unsigned int digestlen,
+		unsigned int target);
+unsigned int util_get_new_target(int diff, int period, unsigned int current_target);
 #endif

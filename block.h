@@ -6,18 +6,19 @@
  * https://en.bitcoin.it/wiki/Block
  */
 
-#include <time.h> /* for timespec */
+#include <time.h> /* for time() */
 #include "transaction.h"
 #include "coin.h"
 
 typedef struct block {
 	/* Core members */
 	int version; /* block format version */
-	struct timespec timestamp; /* time created */
+	time_t timestamp; /* time created */
 	unsigned char* prev_digest; /* hash of prev block */
 	int prev_digest_len; /* length of prev digest */
 	int nonce; /* nonce to increment for mining */
-	int target_bits; /* number of leading zeroes for target difficulty */
+	unsigned char* target; /* target difficulty */
+	int target_len; /* length of target difficulty */
 	int num_transactions; /* number of transactions in block */
 	int max_transactions; /* currently allocated number of transactions */
 	transaction_t** transactions; /* transaction list */
@@ -42,5 +43,6 @@ int block_reference_exists(block_t* chain, unsigned char* ref_txn_digest,
 		unsigned int ref_digestlen, int index);
 coin_t* block_get_coins(block_t* block, char* address_id);
 int block_set_nonce(block_t* block, int nonce);
+int block_set_target(block_t* block, unsigned char* target, int target_len);
 
 #endif
