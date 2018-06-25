@@ -47,6 +47,9 @@ char* util_parse_timestamp(char* serial, const char* token, size_t token_len, ti
 
 /* Difficulty functions */
 int util_digest_meets_target(unsigned char* digest, unsigned int digestlen,
-		unsigned int target);
-unsigned int util_get_new_target(int diff, int period, unsigned int current_target);
+		unsigned char* target, unsigned int targetlen);
+int util_get_new_target(int diff, int period, 
+			unsigned char* cur_target, unsigned int cur_targetlen,
+			unsigned char* base_target, unsigned int base_targetlen,
+			unsigned char** new_target, unsigned int* new_targetlen);
 #endif

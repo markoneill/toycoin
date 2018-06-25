@@ -113,6 +113,7 @@ int blockchain_get_current_target(blockchain_t* chain,
 		time_diff = difftime(new_time, old_time);
 
 		/* We cap the the difference to smooth difficulty */
+		/*printf("old time %ld, new time %ld, diff is %d\n", old_time, new_time, time_diff);*/
 		if (time_diff > TARGET_CONSTRAIN_FACTOR * ADJUSTMENT_TIME) {
 			time_diff = TARGET_CONSTRAIN_FACTOR * ADJUSTMENT_TIME;
 		}
@@ -120,14 +121,20 @@ int blockchain_get_current_target(blockchain_t* chain,
 			time_diff = ADJUSTMENT_TIME / TARGET_CONSTRAIN_FACTOR;
 		}
 
-		/*new_target = util_get_new_target(time_diff,
+		/*printf("capped time diff is %d\n", time_diff);*/
+
+		if (util_get_new_target(time_diff,
 				ADJUSTMENT_TIME,
+				chain->tail->target,
+				chain->tail->target_len,
 				chain->head->target,
 				chain->head->target_len,
-				chain->tail->target,
-				chain->tail->target_len);*/
-
-		/* don't allow the new target to be too easy */
+				&cur_target,
+				&cur_target_len) != 1) {
+			log_printf(LOG_ERROR, "Failed to get new target\n");
+			return 0;
+		}
+		
 	}
 
 	*target = cur_target;
@@ -137,7 +144,6 @@ int blockchain_get_current_target(blockchain_t* chain,
 
 	return 1;
 }
-
 
 block_t* blockchain_new_block(blockchain_t* chain) {
 	unsigned char* prev_digest;
@@ -169,6 +175,11 @@ block_t* blockchain_new_block(blockchain_t* chain) {
 		return NULL;
 	}
 
+	if (blockchain_add_block(chain, new_block) != 1) {
+		log_printf(LOG_ERROR, "Unable to add block\n");
+		block_free(new_block);
+		return NULL;
+	}
 	return new_block;
 }
 

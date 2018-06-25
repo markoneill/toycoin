@@ -4,54 +4,28 @@
 #include "wallet.h"
 #include "transaction.h"
 
-#define TRANSACTION_THRESHOLD	5
-
-
-transaction_t* recv_txn(void);
-void node_process_block(blockchain_t* chain);
-
 void node_start(void) {
-	/*blockchain_t* chain;
-	wallet_t* wallet;*/
-	unsigned int target = 0xcb04041b;
-	util_digest_meets_target(NULL, 0, target);
-	return;
-}
-
-void node_process_block(blockchain_t* chain) {
-	block_t* block;
-	block_t* last_block;
-	unsigned char* prev_digest;
-	unsigned int prev_digestlen;
-	transaction_t* txn;
 	int nonce;
+	char* serialization;
+	blockchain_t* chain;
+	block_t* new_block;
 
-	last_block = blockchain_get_last_block(chain);
-	block_hash(last_block, &prev_digest, &prev_digestlen);
-	block = block_new(prev_digest, prev_digestlen);
-	blockchain_add_block(chain, block);
-	
-	/* gather transactions here */
-	txn = recv_txn();
-	
-	if (transaction_is_valid(txn, chain) == 0) {
-		/* reject */
-	}
-	if (block_add_transaction(block, txn) == 0) {
-		/* failed */
-	}
-
+	chain = blockchain_new();
+	new_block = blockchain_new_block(chain);
 	nonce = 0;
-	while (block_is_valid(block) == 0) {
-		block_set_nonce(block, nonce);
+	printf("Start time %ld\n", time(NULL));
+	while (block_is_valid(new_block) == 0) {
 		nonce++;
+		block_set_nonce(new_block, nonce);
 	}
+	printf("End time %ld\n", time(NULL));
 
-	/* broadcast block to peers */
-	
+	printf("Golden nonce found: %d\n", nonce);
+	block_serialize(new_block, &serialization, NULL);
+	printf("Block:\n%s\n", serialization);
+
+	free(serialization);
+	blockchain_free(chain);
 	return;
 }
 
-transaction_t* recv_txn(void) {
-	return NULL;
-}

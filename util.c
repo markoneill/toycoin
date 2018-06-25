@@ -531,12 +531,149 @@ char* util_parse_str(char* serial, const char* token, size_t token_len) {
 }
 
 int util_digest_meets_target(unsigned char* digest, unsigned int digestlen,
-		unsigned int target) {
-	/*printf("%s\n", BN_bn2hex());*/
+		unsigned char* target, unsigned int targetlen) {
+	BIGNUM* target_bn;
+	BIGNUM* digest_bn;
+	int result;
+	
+	digest_bn = BN_bin2bn(digest, digestlen, NULL);
+	if (digest_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to parse digest\n");
+		return 0;
+	}
+	target_bn = BN_bin2bn(target, targetlen, NULL);
+	if (target_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to parse target\n");
+		BN_free(digest_bn);
+		return 0;
+	}
+
+	result = BN_cmp(digest_bn, target_bn);
+	/*printf("Digest: %s\n", BN_bn2hex(digest_bn));
+	printf("Target: %s\n", BN_bn2hex(target_bn));*/
+	BN_free(digest_bn);
+	BN_free(target_bn);
+
+	/* BN_cmp(a,b) returns 1 if a > b */
+	if (result == 1) {
+		return 0;
+	}
 	return 1;
 }
 
-unsigned int util_get_new_target(int diff, int period, unsigned int current_target) {
-	return 0;
+int util_get_new_target(int diff, int period, 
+			unsigned char* cur_target, unsigned int cur_targetlen,
+			unsigned char* base_target, unsigned int base_targetlen,
+			unsigned char** new_target, unsigned int* new_targetlen) {
+	int result;
+	char* print_str;
+	BN_CTX* bn_ctx;
+	BIGNUM* diff_bn;
+	BIGNUM* period_bn;
+	BIGNUM* cur_target_bn;
+	BIGNUM* base_target_bn;
+	BIGNUM* new_target_bn;
+	unsigned char* target;
+	unsigned int targetlen;
+
+	diff_bn = BN_new();
+	if (diff_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to make diff bignum\n");
+		return 0;
+	}
+	if (BN_set_word(diff_bn, diff) == 0) {
+		log_printf(LOG_ERROR, "Failed to set diff bignum\n");
+		BN_free(diff_bn);
+		return 0;
+	}
+	period_bn = BN_new();
+	if (period_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to make period bignum\n");
+		BN_free(diff_bn);
+		return 0;
+	}
+	if (BN_set_word(period_bn, period) == 0) {
+		log_printf(LOG_ERROR, "Failed to set period bignum\n");
+		BN_free(diff_bn);
+		BN_free(period_bn);
+		return 0;
+	}
+	cur_target_bn = BN_bin2bn(cur_target, cur_targetlen, NULL);
+	if (cur_target_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to make cur target bignum\n");
+		BN_free(diff_bn);
+		BN_free(period_bn);
+		return 0;
+	}
+
+	bn_ctx = BN_CTX_new();
+	if (bn_ctx == NULL) {
+		log_printf(LOG_ERROR, "Failed to make bignum context\n");
+		BN_free(diff_bn);
+		BN_free(period_bn);
+		BN_free(cur_target_bn);
+		return 0;
+	}
+
+	if (BN_mul(cur_target_bn, cur_target_bn, diff_bn, bn_ctx) != 1) {
+		log_printf(LOG_ERROR, "Failed multiply\n");
+		BN_free(diff_bn);
+		BN_free(period_bn);
+		BN_free(cur_target_bn);
+		BN_CTX_free(bn_ctx);
+		return 0;
+	}
+	BN_free(diff_bn);
+
+	if (BN_div(cur_target_bn, NULL, cur_target_bn, period_bn, bn_ctx) != 1) {
+		log_printf(LOG_ERROR, "Failed multiply\n");
+		BN_free(period_bn);
+		BN_free(cur_target_bn);
+		BN_CTX_free(bn_ctx);
+		return 0;
+	}
+	BN_free(period_bn);
+	BN_CTX_free(bn_ctx);
+
+	base_target_bn = BN_bin2bn(base_target, base_targetlen, NULL);
+	if (base_target_bn == NULL) {
+		log_printf(LOG_ERROR, "Failed to make base target bignum\n");
+		BN_free(cur_target_bn);
+		return 0;
+	}
+
+	/* Don't let difficulty get too easy */
+	result = BN_cmp(cur_target_bn, base_target_bn);
+	if (result == 1) {
+		targetlen = BN_num_bytes(base_target_bn);
+		target = (unsigned char*)malloc(targetlen);
+		new_target_bn = base_target_bn;
+		BN_free(cur_target_bn);
+	}
+	else {
+		targetlen = BN_num_bytes(cur_target_bn);
+		target = (unsigned char*)malloc(targetlen);
+		new_target_bn = cur_target_bn;
+		BN_free(base_target_bn);
+	}
+	if (target == NULL) {
+		log_printf(LOG_ERROR, "Failed to allocate new target\n");
+		BN_free(new_target_bn);
+		return 0;
+	}
+
+	if (BN_bn2bin(new_target_bn, target) != targetlen) {
+		log_printf(LOG_ERROR, "Failed to set new target\n");
+		BN_free(new_target_bn);
+		return 0;
+	}
+
+	print_str = BN_bn2hex(new_target_bn);
+	log_printf(LOG_INFO, "New Target: %s\n", print_str);
+	OPENSSL_free(print_str);
+	BN_free(new_target_bn);
+	*new_target = target;
+	*new_targetlen = targetlen;
+	return 1;	
 }
 

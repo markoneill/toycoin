@@ -89,6 +89,7 @@ block_t* block_new_genesis(void) {
 	}
 	/* Genesis block needs static date */
 	block->timestamp = 1529210382;
+	/*block->timestamp = 1529901777;*/
 	block->target = target;
 	block->target_len = target_len;
 
@@ -143,9 +144,16 @@ int block_is_valid(block_t* block) {
 		return 0;
 	}
 
-	/* check timestamp
-	 * check target
+	/* 1) check timestamp
+	 * 2) check target
+	 * 3) check transactions
+	 * 4) make sure coinbase doesn't spend too much
 	 */
+	if (util_digest_meets_target(digest, digestlen,
+			block->target, block->target_len) == 0) {
+		free(digest);
+		return 0;
+	}
 
 	free(digest);
 	return 1;
